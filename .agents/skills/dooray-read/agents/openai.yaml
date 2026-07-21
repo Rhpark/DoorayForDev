@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 업무 읽기"
+  short_description: "Dooray 업무의 제목, 현재 상태, 본문과 첨부 정보를 조회합니다"
+  default_prompt: "Use $dooray-read to read a Dooray task by number."
+
+policy:
+  allow_implicit_invocation: false

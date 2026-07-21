@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 업무 링크"
+  short_description: "Dooray 업무의 웹 주소를 빠르게 조회하고 다른 사람과 공유합니다"
+  default_prompt: "Use $dooray-link to get the web URL for a Dooray task."
+
+policy:
+  allow_implicit_invocation: false

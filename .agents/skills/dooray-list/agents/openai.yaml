@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 미완료 업무 목록"
+  short_description: "미완료된 Dooray 담당 업무를 최신 등록순으로 빠르게 조회합니다"
+  default_prompt: "Use $dooray-list to list my latest incomplete Dooray tasks."
+
+policy:
+  allow_implicit_invocation: false

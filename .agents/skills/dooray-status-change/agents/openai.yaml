@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 업무 상태 변경"
+  short_description: "Dooray 업무의 상태 목록을 확인하고 사용자가 선택한 상태로 변경합니다"
+  default_prompt: "Use $dooray-status-change to select and change the workflow status of a Dooray task."
+
+policy:
+  allow_implicit_invocation: false

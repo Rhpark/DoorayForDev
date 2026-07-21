@@ -1,0 +1,14 @@
+---
+name: dooray-status
+description: Dooray 업무 번호로 제목과 현재 상태만 조회하고 본문과 댓글은 표시하지 않는다. 사용자가 업무 상태 확인을 명시적으로 요청할 때 사용한다.
+---
+
+# Dooray 업무 상태 조회
+
+저장소 루트에서 다음 명령을 실행한다.
+
+```text
+python Dooray/dooray.py status 업무번호
+```
+
+원본 결과만 그대로 즉시 보여준다. 요약하지 않는다.

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 업무 전체 조회"
+  short_description: "Dooray 업무의 본문, 댓글 이력과 첨부 정보를 전체 조회합니다"
+  default_prompt: "Use $dooray-read-full to read the full context and comment history of a Dooray task."
+
+policy:
+  allow_implicit_invocation: false

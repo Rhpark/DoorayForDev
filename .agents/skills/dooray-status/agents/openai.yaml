@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 업무 상태 조회"
+  short_description: "Dooray 업무의 현재 상태와 제목을 빠르고 간단하게 확인합니다"
+  default_prompt: "Use $dooray-status to check the current status of a Dooray task."
+
+policy:
+  allow_implicit_invocation: false
