@@ -6,7 +6,7 @@
 
 - 공용 CLI: `Dooray/dooray.py`
 - 로컬 설정: `Dooray/Config.md`
-- 다운로드 위치: `Dooray/download/`
+- 다운로드 위치: `Dooray/report/<업무번호>/download/`
 - Claude Code Skill: `.claude/skills/dooray-*`
 - Codex Skill: `.agents/skills/dooray-*`
 
@@ -23,6 +23,7 @@
 | 현재 상태 | `dooray-status` | 제목과 상태만 조회 |
 | 상태 변경 | `dooray-status-change` | 현재 상태와 상태 목록 확인 후 변경 |
 | 댓글 등록 | `dooray-reply` | 사용자가 지정한 댓글 등록 |
+| 적용 방안 보고서 | `dooray-report` | 전체 이력과 저장소 코드를 분석해 `REPORT.md` 생성·갱신 |
 | PowerShell 단축 명령 설치 | `dooray-shell-setup` | PowerShell 프로필에 함수 등록 |
 
 현재 실행 환경에 맞는 Skill의 `SKILL.md`를 읽고 그 절차를 우선 적용한다. Claude Code에서는 `.claude/skills/`, Codex에서는 `.agents/skills/`를 사용한다.
@@ -30,10 +31,12 @@
 ## 공통 실행 규칙
 
 - CLI 명령은 저장소 루트에서 실행한다. 상대경로가 `Dooray/dooray.py`를 기준으로 한다.
-- 조회 결과는 Skill 지시에 따라 원본 그대로 즉시 보여주고 임의로 요약하거나 재작성하지 않는다.
+- 조회 Skill의 결과는 해당 Skill 지시에 따라 원본 그대로 즉시 보여주고 임의로 요약하거나 재작성하지 않는다.
+- 단, `dooray-report`는 분석 Skill이므로 `full` 원본을 응답에 그대로 출력하지 않고 분석 자료로만 사용한다. 생성하거나 갱신한 `REPORT.md`의 내용만 화면에 그대로 출력한다.
 - 댓글 내용은 사용자가 준 문구를 임의로 다듬지 않는다.
 - 상태 변경은 현재 상태와 워크플로 목록을 먼저 보여주고 사용자가 선택한 뒤 실행한다.
 - 댓글 등록과 상태 변경 같은 쓰기 작업은 사용자의 명시적인 요청 없이 실행하지 않는다.
+- 사용자가 `dooray-report`를 직접 호출하면 분석에 필요한 첨부파일 다운로드와 `Dooray/report/<업무번호>/REPORT.md` 생성·갱신만 허용한다. 소스·설정 수정, Git 커밋, Dooray 댓글 등록·상태 변경은 허용하지 않는다.
 - CLI 오류를 성공으로 해석하지 말고 오류 내용을 그대로 알린다.
 
 ## CLI 대응표
