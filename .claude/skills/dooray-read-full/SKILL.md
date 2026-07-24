@@ -4,6 +4,9 @@ description: Dooray 업무의 제목·상태·내용·댓글 이력을 조회한
 disable-model-invocation: true
 model: sonnet
 effort: low
+allowed-tools:
+  - PowerShell(python Dooray/dooray.py full *)
+  - Bash(python Dooray/dooray.py full *)
 ---
 
 저장소 루트로 이동한 뒤 실행 (개수 생략 시 댓글 전체, 지정 시 최신 N개):
