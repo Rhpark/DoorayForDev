@@ -1,8 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(python Dooray/dooray.py *)",
-      "Bash(python Dooray/dooray.py *)"
+      "PowerShell(python Dooray/dooray.py read *)",
+      "Bash(python Dooray/dooray.py read *)",
+      "PowerShell(python Dooray/dooray.py full *)",
+      "Bash(python Dooray/dooray.py full *)",
+      "PowerShell(python Dooray/dooray.py link *)",
+      "Bash(python Dooray/dooray.py link *)",
+      "PowerShell(python Dooray/dooray.py status *)",
+      "Bash(python Dooray/dooray.py status *)",
+      "PowerShell(python Dooray/dooray.py workflows)",
+      "Bash(python Dooray/dooray.py workflows)",
+      "PowerShell(python Dooray/dooray.py list *)",
+      "Bash(python Dooray/dooray.py list *)",
+      "PowerShell(python Dooray/dooray.py download *)",
+      "Bash(python Dooray/dooray.py download *)"
     ]
   }
 }
