@@ -7,13 +7,13 @@
 
 사용법 (저장소 루트에서 실행):
   python Dooray/dooray.py read <업무번호>              제목 + 상태 + 본문
-  python Dooray/dooray.py full <업무번호> [개수]        read + 댓글 이력 (개수 생략 시 전체, 지정 시 최신 N개)
+  python Dooray/dooray.py full <업무번호> [개수]        read + 태그 + 댓글 이력 (개수 생략 시 전체, 지정 시 최신 N개)
   python Dooray/dooray.py link <업무번호>              업무 웹 주소
   python Dooray/dooray.py status <업무번호>            현재 상태
   python Dooray/dooray.py workflows                    이 프로젝트의 상태 목록
   python Dooray/dooray.py setstatus <업무번호> <상태명>  상태 변경 (--working / --completed 별칭 가능)
   python Dooray/dooray.py comment <업무번호> <내용>     댓글 등록 (--file <경로> 로 파일에서 읽기 가능 — 셸 이스케이프 없이 안전)
-  python Dooray/dooray.py download <업무번호> [파일명|번호]  첨부파일을 Dooray/download/ 폴더에 저장
+  python Dooray/dooray.py download <업무번호> [파일명|번호]  첨부파일을 Dooray/report/<업무번호>/download/ 에 저장
   python Dooray/dooray.py list <개수>                  완료되지 않은 업무를 최신 등록순으로 N개
 """
 import json
@@ -109,6 +109,11 @@ class Dooray:
 
     def workflows(self):
         return self._api(f"/project/v1/projects/{self.pid}/workflows")["result"]
+
+    def tag_names(self):
+        """프로젝트 태그 목록 → {tagId: 이름}. API 1번으로 전체 매핑을 얻는다."""
+        return {t["id"]: t["name"]
+                for t in self._api(f"/project/v1/projects/{self.pid}/tags")["result"]}
 
     def list_open_posts(self, limit):
         """내가 담당자인, 완료(closed)되지 않은 업무를 최신 등록순으로 최대 limit개.
@@ -247,10 +252,21 @@ class Dooray:
         sys.exit(f"상태 '{name}' 이(가) 없습니다. 가능한 상태: {names}")
 
 
-def fmt_post(p):
+def fmt_post(p, tags_line=""):
     wf = (p.get("workflow") or {}).get("name", "?")
     body = ((p.get("body") or {}).get("content") or "").strip()
-    return f"#{p['number']} {p['subject']}\n상태: {wf}\n\n{body or '(본문 없음)'}"
+    head = f"#{p['number']} {p['subject']}\n상태: {wf}"
+    if tags_line:
+        head += f"\n{tags_line}"
+    return f"{head}\n\n{body or '(본문 없음)'}"
+
+
+def fmt_tags(p, tag_map):
+    ids = [t.get("id") for t in (p.get("tags") or [])]
+    if not ids:
+        return ""
+    names = [tag_map.get(i, i) for i in ids]
+    return "태그: " + ", ".join(names)
 
 
 def fmt_list(posts):
@@ -338,8 +354,10 @@ def main():
             detail_f = ex.submit(d.post_detail, post_id)
             files_f = ex.submit(d.files, post_id)
             comments_f = ex.submit(d.comments, post_id, limit)
-            p, files, logs = detail_f.result(), files_f.result(), comments_f.result()
-        print(fmt_post(p) + fmt_files(files) + fmt_link(d.task_url(post_id)))
+            tags_f = ex.submit(d.tag_names)
+            p, files, logs, tag_map = (detail_f.result(), files_f.result(),
+                                       comments_f.result(), tags_f.result())
+        print(fmt_post(p, fmt_tags(p, tag_map)) + fmt_files(files) + fmt_link(d.task_url(post_id)))
         print("\n--- 댓글 ---")
         print(fmt_comments(logs, d.member_names(creator_ids(logs))))
     elif cmd == "link":
@@ -398,8 +416,8 @@ def main():
         else:
             lines = "\n".join(f"  {i}. {f['name']}" for i, f in enumerate(files, 1))
             sys.exit(f"첨부파일이 여러 개입니다. 파일명·번호 또는 all 을 지정하세요:\n{lines}")
-        out_dir = Path(__file__).parent / "download"
-        out_dir.mkdir(exist_ok=True)
+        out_dir = Path(__file__).parent / "report" / str(number) / "download"
+        out_dir.mkdir(parents=True, exist_ok=True)
         with ThreadPoolExecutor() as ex:
             futures = {ex.submit(d.download_file, post_id, f["id"]): f for f in picks}
             for fut, f in futures.items():
