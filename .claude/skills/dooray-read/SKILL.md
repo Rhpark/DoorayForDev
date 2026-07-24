@@ -4,6 +4,9 @@ description: Dooray 업무의 제목·업무 상태·내용을 조회한다. 사
 disable-model-invocation: true
 model: sonnet
 effort: low
+allowed-tools:
+  - PowerShell(python Dooray/dooray.py read *)
+  - Bash(python Dooray/dooray.py read *)
 ---
 
 저장소 루트로 이동한 뒤 실행:
