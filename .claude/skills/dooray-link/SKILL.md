@@ -4,6 +4,9 @@ description: Dooray 업무의 웹 주소(URL)를 알려준다. 사용법 /dooray
 disable-model-invocation: true
 model: sonnet
 effort: low
+allowed-tools:
+  - PowerShell(python Dooray/dooray.py link *)
+  - Bash(python Dooray/dooray.py link *)
 ---
 
 저장소 루트로 이동한 뒤 실행:
