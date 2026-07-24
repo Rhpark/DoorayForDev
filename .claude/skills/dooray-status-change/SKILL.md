@@ -4,6 +4,11 @@ description: Dooray 업무의 상태를 목록에서 선택해 변경한다. 사
 disable-model-invocation: true
 model: sonnet
 effort: medium
+allowed-tools:
+  - PowerShell(python Dooray/dooray.py status *)
+  - Bash(python Dooray/dooray.py status *)
+  - PowerShell(python Dooray/dooray.py workflows)
+  - Bash(python Dooray/dooray.py workflows)
 ---
 
 1. 저장소 루트로 이동한 뒤 현재 상태와 상태 목록을 조회한다:
