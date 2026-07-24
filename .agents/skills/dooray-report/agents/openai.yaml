@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 적용 방안 보고서"
+  short_description: "Dooray 이력을 분석해 코드 적용 방안 보고서를 작성하고 갱신합니다"
+  default_prompt: "Use $dooray-report to analyze a Dooray task and update its implementation report."
+
+policy:
+  allow_implicit_invocation: false
