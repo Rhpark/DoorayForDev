@@ -48,7 +48,7 @@ MyApp/                      ← Dooray와 연계된 내 작업 프로젝트 (여
 
 ## 설정
 
-`Dooray/Config.md`를 직접 만들고 아래 키를 프로젝트에 맞게 채운다 (`KEY=VALUE`, 주석 `#`는 참고용이니 빼도 된다).
+`Dooray/Config.md`에 아래 키를 프로젝트에 맞게 채운다 (`KEY=VALUE`, 주석 `#`는 참고용이니 빼도 된다).
 
 ```text
 DOORAY_API_TOKEN=발급받은_토큰   # 필수: Dooray 개인 API 토큰
