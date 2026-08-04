@@ -10,10 +10,11 @@ allowed-tools:
   - Glob
   - Write(Dooray/report/**)
   - Edit(Dooray/report/**)
-  - PowerShell(python Dooray/dooray.py full *)
-  - PowerShell(python Dooray/dooray.py download *)
-  - Bash(python Dooray/dooray.py full *)
-  - Bash(python Dooray/dooray.py download *)
+  - PowerShell(dooray full *)
+  - PowerShell(dooray download *)
+  - Bash(dooray full *)
+  - Bash(dooray download *)
+  - Bash(date *)
   - PowerShell(Get-Date *)
 ---
 
@@ -31,7 +32,7 @@ allowed-tools:
 1. 저장소 루트로 이동한 뒤 이력 전체(본문 + 댓글)를 읽는다:
 
 ```
-python Dooray/dooray.py full <이력번호>
+dooray full <이력번호>
 ```
 
 진짜 요구사항이 댓글에 있는 경우가 많으므로 `read`가 아니라 `full`을 쓴다. `full` 원본은 분석 자료로만 사용하고 화면에 출력하지 않는다. `full` 출력에는 태그(예: BUG/ADD/CHANGE/DELETE)도 포함되는데, 태그가 있으면 **작업 성격(버그 수정인지 신규 추가인지 개선인지 등)을 파악하는 근거로 분석·방안에 반영한다.**
@@ -39,7 +40,7 @@ python Dooray/dooray.py full <이력번호>
 1-1. 첨부파일이 있고 분석에 도움이 될 것 같으면 다운로드해서 직접 읽는다:
 
 ```
-python Dooray/dooray.py download <이력번호> <파일명>
+dooray download <이력번호> <파일명>
 ```
 
 - 받은 파일은 `Dooray/report/<이력번호>/download/<파일명>`에 저장되므로, 그 경로를 Read로 읽는다. **읽어서 확인한 내용은 보고서 "분석" 섹션에 "어느 첨부에서 무엇을 확인했는지" 근거로 명시한다**(예: "`설계서.pdf`에서 응답 포맷이 X로 규정됨"). 받아놓고 문서에 근거를 안 남기지 않는다.
@@ -49,10 +50,10 @@ python Dooray/dooray.py download <이력번호> <파일명>
 2. 보고서 경로를 `Dooray/report/<이력번호>/REPORT.md`로 정하고, 기존 보고서가 있으면 먼저 읽는다. 그다음 이력이 요구하는 바를 파악하고 이 프로젝트 코드에서 관련 부분을 탐색한다. 탐색 범위는 다음 규칙으로 정한다:
 
 - **시작점**: 이력·댓글에서 뽑은 키워드로 Grep/Glob 검색 → 매칭된 정의로 따라 들어간다. 코드베이스를 처음부터 통독하지 않는다.
-- **중단 기준**: 이력이 요구하는 **각 항목마다** (a) 관련 코드를 찾으면 근거를 달고, (b) 못 찾으면 "관련 코드 없음"이라고 명시한 뒤 멈춘다. 모든 요구 항목이 근거 또는 '없음' 판정을 받으면 탐색 종료 — 요구사항과 무관한 영역은 훑지 않는다.
+- **중단 기준**: 이력이 요구하는 **각 항목마다** (a) 관련 코드를 찾으면 근거를 달고, (b) 못 찾으면 "관련 코드 없음"과 함께 **검색한 키워드·범위를 기록**한 뒤 멈춘다. 모든 요구 항목이 근거 또는 '없음' 판정을 받으면 탐색 종료 — 요구사항과 무관한 영역은 훑지 않는다.
 - **규모 상한**: 이력이 여러 영역에 걸쳐 크면 전부 상세히 매핑하려 하지 말고, 영향받는 영역을 상위 수준으로만 짚고 상세 매핑은 파이프라인(아래 3번)으로 넘긴다.
 
-**방안에 등장하는 코드는 반드시 실제로 확인한 것만 근거로 댄다 — `파일경로`의 `심볼명(인자)` 형식으로(예: `Dooray/dooray.py`의 `resolve_workflow(name)`). 함수가 아닌 것(설정 키·상수·CLI 하위명령 등)은 그 이름을 그대로 쓴다(예: `Config.md`의 `COMPANY=`). 줄번호는 편집 시 금방 어긋나므로 쓰지 않는다. 있을 법한 파일명이나 코드를 지어내지 않는다.**
+**방안에 등장하는 코드는 반드시 실제로 확인한 것만 근거로 댄다 — `파일경로`의 `심볼명(인자)` 형식으로(예: `Dooray/dooray.py`의 `resolve_workflow(name)`). 함수가 아닌 것(설정 키·상수·CLI 하위명령 등)은 그 이름을 그대로 쓴다(예: `Config.md`의 `COMPANY=`). 줄번호는 편집 시 금방 어긋나므로 쓰지 않는다. 있을 법한 파일명이나 코드를 지어내지 않는다. 새 파일·새 심볼이 필요한 방안은 "신규 생성 제안"으로 명확히 구분하고, 이미 존재하는 것처럼 쓰지 않는다.**
 
 3. 기존 보고서가 있으면 최신 Dooray 본문·댓글과 현재 저장소 코드를 기준으로 갱신하고, 없으면 새로 작성한다. 보고서에는 아래 내용을 한국어로 작성한다:
 
@@ -67,7 +68,7 @@ python Dooray/dooray.py download <이력번호> <파일명>
 
 기존 보고서를 갱신할 때는 새 보고서를 뒤에 통째로 덧붙이지 않는다. 본문을 최신 분석으로 고치되 최초 작성 시각과 기존 갱신 이력은 유지한다. 기존 결론을 변경하거나 제거하면 그 이유를 새 갱신 이력으로 남긴다.
 
-4. 현재 시각을 구한다(PowerShell: `Get-Date -Format "yyyy-MM-dd HH:mm"`). 폴더가 없으면 만든 뒤 보고서를 다음 경로에 저장한다:
+4. 현재 셸에서 로컬 시각을 구한다(PowerShell: `Get-Date -Format "yyyy-MM-dd HH:mm"`, bash/zsh: `date "+%Y-%m-%d %H:%M"`). 폴더가 없으면 만든 뒤 보고서를 다음 경로에 저장한다:
 
 ```
 Dooray/report/<이력번호>/REPORT.md

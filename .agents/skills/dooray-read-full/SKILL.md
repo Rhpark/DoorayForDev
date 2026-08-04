@@ -8,7 +8,7 @@ description: Dooray 업무 번호로 제목, 상태, 본문, 태그, 첨부파�
 저장소 루트에서 다음 명령을 실행한다. 댓글 개수를 생략하면 전체 댓글을 조회하고, 지정하면 최신 댓글을 해당 개수만큼 조회한다.
 
 ```text
-python Dooray/dooray.py full 업무번호 선택적-댓글-개수
+dooray full 업무번호 선택적-댓글-개수
 ```
 
 원본 결과만 그대로 즉시 보여준다. 요약하지 않는다. 도구 출력 상자는 터미널이 접을 수 있으니, 결과 전체를 답변 본문 코드블록에 붙여넣는다.
@@ -16,5 +16,5 @@ python Dooray/dooray.py full 업무번호 선택적-댓글-개수
 첨부파일 다운로드를 요청하면 다음 명령을 실행한다.
 
 ```text
-python Dooray/dooray.py download 업무번호 파일명-또는-번호-또는-all
+dooray download 업무번호 파일명-또는-번호-또는-all
 ```

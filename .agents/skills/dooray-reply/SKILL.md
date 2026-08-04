@@ -10,7 +10,7 @@ description: Dooray 업무 번호에 사용자가 지정한 댓글을 등록한�
 저장소 루트에서 실행한다.
 
 ```text
-python Dooray/dooray.py comment 업무번호 --file 임시파일경로
+dooray comment 업무번호 --file 임시파일경로
 ```
 
 댓글은 API 토큰 소유자 명의로 등록된다. 명령 실행 후 생성한 임시 파일을 제거한다.

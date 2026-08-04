@@ -8,8 +8,8 @@ description: Dooray 업무 번호의 현재 상태와 프로젝트 상태 목록
 1. 저장소 루트에서 현재 상태와 상태 목록을 조회한다.
 
 ```text
-python Dooray/dooray.py status 업무번호
-python Dooray/dooray.py workflows
+dooray status 업무번호
+dooray workflows
 ```
 
 2. 사용자에게 현재 상태를 알리고 상태 목록을 선택지로 제시해 하나를 고르게 한다. 현재 상태와 같은 항목은 그 사실을 함께 알린다.
@@ -17,7 +17,7 @@ python Dooray/dooray.py workflows
 3. 사용자가 고른 상태로 변경한다.
 
 ```text
-python Dooray/dooray.py setstatus 업무번호 "선택한 상태명"
+dooray setstatus 업무번호 "선택한 상태명"
 ```
 
 4. 출력된 변경 완료 메시지를 사용자에게 확인한다.

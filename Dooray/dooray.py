@@ -5,19 +5,26 @@
   DOORAY_API_TOKEN, REPOSITORY, TENANT, WORKING, COMPLETED, COMPANY(선택, @멘션 검색을 이 회사 이메일 도메인으로 한정)
   RESPONSE_TIME(선택, API 응답 대기 초. 기본 10)
 
-사용법 (저장소 루트에서 실행):
-  python Dooray/dooray.py read <업무번호>              제목 + 상태 + 본문
-  python Dooray/dooray.py full <업무번호> [개수]        read + 태그 + 댓글 이력 (개수 생략 시 전체, 지정 시 최신 N개)
-  python Dooray/dooray.py link <업무번호>              업무 웹 주소
-  python Dooray/dooray.py status <업무번호>            현재 상태
-  python Dooray/dooray.py workflows                    이 프로젝트의 상태 목록
-  python Dooray/dooray.py setstatus <업무번호> <상태명>  상태 변경 (--working / --completed 별칭 가능)
-  python Dooray/dooray.py comment <업무번호> <내용>     댓글 등록 (--file <경로> 로 파일에서 읽기 가능 — 셸 이스케이프 없이 안전)
-  python Dooray/dooray.py download <업무번호> [파일명|번호]  첨부파일을 Dooray/report/<업무번호>/download/ 에 저장
-  python Dooray/dooray.py list <개수>                  완료되지 않은 업무를 최신 등록순으로 N개
+최초 초기화 (저장소 루트에서 실행):
+  Windows:      python Dooray/dooray.py init
+  macOS/Linux:  python3 Dooray/dooray.py init
+
+초기화 후 사용법 (저장소 루트에서 실행):
+  dooray read <업무번호>              제목 + 상태 + 본문
+  dooray full <업무번호> [개수]        read + 태그 + 댓글 이력 (개수 생략 시 전체, 지정 시 최신 N개)
+  dooray link <업무번호>              업무 웹 주소
+  dooray status <업무번호>            현재 상태
+  dooray workflows                    이 프로젝트의 상태 목록
+  dooray setstatus <업무번호> <상태명>  상태 변경 (--working / --completed 별칭 가능)
+  dooray comment <업무번호> <내용>     댓글 등록 (--file <경로> 로 파일에서 읽기 가능 — 셸 이스케이프 없이 안전)
+  dooray download <업무번호> [파일명|번호]  첨부파일을 Dooray/report/<업무번호>/download/ 에 저장
+  dooray list <개수>                  완료되지 않은 업무를 최신 등록순으로 N개
 """
 import json
+import os
 import re
+import shutil
+import stat
 import sys
 import urllib.error
 import urllib.parse
@@ -27,8 +34,127 @@ from pathlib import Path
 
 BASE = "https://api.dooray.com"
 CONF = Path(__file__).parent / "Config.md"
-KNOWN_CMDS = {"read", "full", "link", "status", "workflows", "setstatus", "comment", "download", "list"}
+KNOWN_CMDS = {"init", "help", "read", "full", "link", "status", "workflows", "setstatus", "comment", "download", "list"}
 CLOSED_EXCLUDED_CLASSES = "backlog,registered,working"
+PYTHON_CMD = "python" if sys.platform == "win32" else "python3"
+LAUNCHER_MARKER = "DoorayForDev launcher"
+
+
+def current_platform():
+    if sys.platform == "win32":
+        return "windows"
+    if sys.platform == "darwin":
+        return "macos"
+    if sys.platform.startswith("linux"):
+        return "linux"
+    raise RuntimeError(f"지원하지 않는 플랫폼입니다: {sys.platform}")
+
+
+def default_launcher_dir(platform):
+    if platform == "windows":
+        base = os.environ.get("LOCALAPPDATA")
+        if base:
+            return Path(base) / "DoorayForDev" / "bin"
+        return Path.home() / "AppData" / "Local" / "DoorayForDev" / "bin"
+    return Path.home() / ".local" / "bin"
+
+
+def launcher_text(platform, python_executable):
+    if platform == "windows":
+        python_path = str(Path(python_executable).resolve())
+        return (
+            "@echo off\n"
+            f"rem {LAUNCHER_MARKER}\n"
+            "if not exist \"%CD%\\Dooray\\dooray.py\" (\n"
+            "  >&2 echo Dooray/dooray.py를 찾을 수 없습니다. 저장소 루트에서 실행하세요.\n"
+            "  exit /b 1\n"
+            ")\n"
+            f'"{python_path}" "%CD%\\Dooray\\dooray.py" %*\n'
+        )
+    if platform in {"macos", "linux"}:
+        python_path = str(python_executable)
+        if not python_path.startswith("/"):
+            python_path = Path(python_path).resolve().as_posix()
+        escaped_python = "'" + python_path.replace("'", "'\"'\"'") + "'"
+        return (
+            "#!/bin/sh\n"
+            f"# {LAUNCHER_MARKER}\n"
+            'script="$PWD/Dooray/dooray.py"\n'
+            'if [ ! -f "$script" ]; then\n'
+            "  echo 'Dooray/dooray.py를 찾을 수 없습니다. 저장소 루트에서 실행하세요.' >&2\n"
+            "  exit 1\n"
+            "fi\n"
+            f'exec {escaped_python} "$script" "$@"\n'
+        )
+    raise RuntimeError(f"지원하지 않는 플랫폼입니다: {platform}")
+
+
+def install_launcher(platform=None, install_dir=None, python_executable=None, check_path=True):
+    platform = platform or current_platform()
+    install_dir = Path(install_dir) if install_dir else default_launcher_dir(platform)
+    python_executable = python_executable or sys.executable
+    launcher = install_dir / ("dooray.cmd" if platform == "windows" else "dooray")
+
+    if check_path:
+        existing = shutil.which("dooray")
+        if existing and Path(existing).resolve() != launcher.resolve():
+            raise RuntimeError(f"다른 dooray 명령이 이미 PATH에 있습니다: {existing}")
+
+    if launcher.exists():
+        existing_text = launcher.read_text(encoding="utf-8", errors="replace")
+        if LAUNCHER_MARKER not in existing_text:
+            raise RuntimeError(f"기존 파일을 덮어쓸 수 없습니다: {launcher}")
+
+    install_dir.mkdir(parents=True, exist_ok=True)
+    launcher.write_text(launcher_text(platform, python_executable), encoding="utf-8")
+    if platform != "windows":
+        launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return launcher
+
+
+def add_windows_user_path(directory):
+    import ctypes
+    import winreg
+
+    directory = str(Path(directory).resolve())
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+        try:
+            current, value_type = winreg.QueryValueEx(key, "Path")
+        except FileNotFoundError:
+            current, value_type = "", winreg.REG_EXPAND_SZ
+        entries = [item for item in current.split(";") if item]
+        if any(os.path.normcase(os.path.expandvars(item).rstrip("\\/")) == os.path.normcase(directory.rstrip("\\/")) for item in entries):
+            return False
+        updated = ";".join(entries + [directory])
+        winreg.SetValueEx(key, "Path", 0, value_type, updated)
+    try:
+        result = ctypes.c_size_t()
+        ctypes.windll.user32.SendMessageTimeoutW(
+            0xFFFF, 0x001A, 0, "Environment", 0x0002, 5000, ctypes.byref(result)
+        )
+    except (AttributeError, OSError):
+        pass
+    return True
+
+
+def init_command():
+    platform = current_platform()
+    try:
+        launcher = install_launcher(platform=platform)
+        path_changed = add_windows_user_path(launcher.parent) if platform == "windows" else None
+    except (OSError, RuntimeError) as exc:
+        sys.exit(f"Dooray 초기화 실패: {exc}")
+
+    print(f"플랫폼: {platform}")
+    print(f"Python: {Path(sys.executable).resolve()}")
+    print(f"launcher 설치 완료: {launcher}")
+    if path_changed is True:
+        print("Windows 사용자 PATH에 launcher 폴더를 추가했습니다.")
+    elif path_changed is False:
+        print("Windows 사용자 PATH에 launcher 폴더가 이미 등록되어 있습니다.")
+    else:
+        print("셸 프로필에 launcher 폴더를 PATH로 등록해야 합니다.")
+    print("셸 단축 명령 설정 후 터미널과 AI 에이전트를 다시 시작하세요.")
 
 
 def load_config():
@@ -36,6 +162,7 @@ def load_config():
         sys.exit(f"{CONF} 가 없습니다. DOORAY_API_TOKEN=, REPOSITORY= 등을 담은 설정 파일을 먼저 만드세요.")
     cfg = {}
     for line in CONF.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0]  # 인라인 주석 제거
         if "=" in line:
             k, v = line.split("=", 1)
             k = k.strip()
@@ -321,14 +448,22 @@ def main():
     cmd, rest = args[0], args[1:]
     if cmd not in KNOWN_CMDS:
         sys.exit(f"알 수 없는 명령: {cmd}\n{__doc__}")
+    if cmd == "help":
+        print(__doc__)
+        return
+    if cmd == "init":
+        if rest:
+            sys.exit(f"init 명령에는 인자가 없습니다. 예: {PYTHON_CMD} Dooray/dooray.py init")
+        init_command()
+        return
     if cmd == "list":
         if not rest or not rest[0].isdigit():
-            sys.exit("조회할 개수가 필요합니다. 예: python dooray.py list 5")
+            sys.exit("조회할 개수가 필요합니다. 예: dooray list 5")
     elif cmd != "workflows" and not rest:
-        sys.exit("업무번호가 필요합니다. 예: python dooray.py read 1")
+        sys.exit("업무번호가 필요합니다. 예: dooray read 1")
     if cmd == "full" and len(rest) > 1:
         if len(rest) > 2 or not rest[1].isdigit() or int(rest[1]) <= 0:
-            sys.exit("댓글 개수는 양의 정수여야 합니다. 예: python dooray.py full 1 10")
+            sys.exit("댓글 개수는 양의 정수여야 합니다. 예: dooray full 1 10")
     d = Dooray()
 
     if cmd == "workflows":
@@ -369,7 +504,7 @@ def main():
         print(f"#{p['number']} {p['subject']}\n상태: {(p.get('workflow') or {}).get('name', '?')}")
     elif cmd == "setstatus":
         if len(rest) < 2:
-            sys.exit("상태명이 필요합니다. 예: python dooray.py setstatus 1 \"DEV 진행중\"")
+            sys.exit("상태명이 필요합니다. 예: dooray setstatus 1 \"DEV 진행중\"")
         with ThreadPoolExecutor() as ex:
             post_id_f = ex.submit(d.find_post_id, number)
             workflow_f = ex.submit(d.resolve_workflow, " ".join(rest[1:]))
@@ -378,7 +513,7 @@ def main():
         print(f"#{number} 상태 변경 완료: {w['name']}")
     elif cmd == "comment":
         if len(rest) < 2:
-            sys.exit("댓글 내용이 필요합니다. 예: python dooray.py comment 1 \"내용\" 또는 --file <경로>")
+            sys.exit("댓글 내용이 필요합니다. 예: dooray comment 1 \"내용\" 또는 --file <경로>")
         if rest[1] == "--file":
             if len(rest) < 3:
                 sys.exit("--file 뒤에 파일 경로가 필요합니다.")

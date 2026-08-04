@@ -8,7 +8,7 @@ description: Dooray 업무 번호로 웹 주소(URL)를 조회한다. 사용자�
 저장소 루트에서 다음 명령을 실행한다.
 
 ```text
-python Dooray/dooray.py link 업무번호
+dooray link 업무번호
 ```
 
 원본 결과만 그대로 즉시 보여준다. 요약하지 않는다. 도구 출력 상자는 터미널이 접을 수 있으니, 결과 전체를 답변 본문 코드블록에 붙여넣는다.

@@ -5,17 +5,17 @@ disable-model-invocation: true
 model: sonnet
 effort: medium
 allowed-tools:
-  - PowerShell(python Dooray/dooray.py status *)
-  - Bash(python Dooray/dooray.py status *)
-  - PowerShell(python Dooray/dooray.py workflows)
-  - Bash(python Dooray/dooray.py workflows)
+  - PowerShell(dooray status *)
+  - Bash(dooray status *)
+  - PowerShell(dooray workflows)
+  - Bash(dooray workflows)
 ---
 
 1. 저장소 루트로 이동한 뒤 현재 상태와 상태 목록을 조회한다:
 
 ```
-python Dooray/dooray.py status <업무번호>
-python Dooray/dooray.py workflows
+dooray status <업무번호>
+dooray workflows
 ```
 
 2. 사용자에게 현재 상태를 알려주고, 상태 목록을 선택지로 제시해 하나를 고르게 한다 (선택 UI가 4개까지만 보여줄 수 있으면 나눠서 제시). 현재 상태와 같은 항목은 표시에서 그 사실을 알려준다.
@@ -23,7 +23,7 @@ python Dooray/dooray.py workflows
 3. 사용자가 고른 상태로 변경한다:
 
 ```
-python Dooray/dooray.py setstatus <업무번호> "<선택한 상태명>"
+dooray setstatus <업무번호> "<선택한 상태명>"
 ```
 
 4. 출력된 변경 완료 메시지를 사용자에게 확인해준다.

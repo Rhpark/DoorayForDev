@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 초기화"
+  short_description: "Dooray 실행 명령과 셸 단축 명령을 안전하게 설치합니다"
+  default_prompt: "Use $dooray-init to install the Dooray launcher and shell shortcuts on this machine."
+
+policy:
+  allow_implicit_invocation: false

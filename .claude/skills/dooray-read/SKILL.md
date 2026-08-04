@@ -5,15 +5,15 @@ disable-model-invocation: true
 model: sonnet
 effort: low
 allowed-tools:
-  - PowerShell(python Dooray/dooray.py read *)
-  - Bash(python Dooray/dooray.py read *)
+  - PowerShell(dooray read *)
+  - Bash(dooray read *)
 ---
 
 저장소 루트로 이동한 뒤 실행:
 
 ```
-python Dooray/dooray.py read <업무번호>
+dooray read <업무번호>
 ```
 
 원본 결과만 그대로 즉시 보여준다. 요약하지 않는다. 도구 출력 상자는 터미널이 접을 수 있으니, 결과 전체를 답변 본문 코드블록에 붙여넣는다.
-첨부파일 다운로드를 원하면 `python Dooray/dooray.py download <업무번호> [파일명|번호|all]`을 실행한다.
+첨부파일 다운로드를 원하면 `dooray download <업무번호> [파일명|번호|all]`을 실행한다.

@@ -8,7 +8,7 @@ description: Dooray 업무 번호로 제목과 현재 상태만 조회하고 본
 저장소 루트에서 다음 명령을 실행한다.
 
 ```text
-python Dooray/dooray.py status 업무번호
+dooray status 업무번호
 ```
 
 원본 결과만 그대로 즉시 보여준다. 요약하지 않는다. 도구 출력 상자는 터미널이 접을 수 있으니, 결과 전체를 답변 본문 코드블록에 붙여넣는다.

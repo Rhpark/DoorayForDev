@@ -5,14 +5,14 @@ disable-model-invocation: true
 model: sonnet
 effort: low
 allowed-tools:
-  - PowerShell(python Dooray/dooray.py list *)
-  - Bash(python Dooray/dooray.py list *)
+  - PowerShell(dooray list *)
+  - Bash(dooray list *)
 ---
 
 저장소 루트로 이동한 뒤 실행:
 
 ```
-python Dooray/dooray.py list <개수>
+dooray list <개수>
 ```
 
 원본 결과만 그대로 즉시 보여준다. 요약하지 않는다. 도구 출력 상자는 터미널이 접을 수 있으니, 결과 전체를 답변 본문 코드블록에 붙여넣는다.

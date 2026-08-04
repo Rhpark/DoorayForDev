@@ -1,6 +1,6 @@
 ---
 name: dooray-report
-description: Dooray 이력 전체를 사실 기반으로 분석하고 현재 저장소 코드에 적용할 방안을 Dooray/report/<업무번호>/REPORT.md로 작성하거나 갱신한다. 사용자가 $dooray-report와 업무번호를 직접 지정했을 때만 사용하며 실제 구현은 하지 않는다.
+description: Dooray 이력 전체를 사실 기반으로 분석하고 현재 저장소 코드에 적용할 방안을 업무번호별 REPORT.md로 작성하거나 갱신한다. 사용자가 $dooray-report와 업무번호를 직접 지정했을 때만 사용하며 실제 구현은 하지 않는다.
 ---
 
 # Dooray 적용 방안 보고서
@@ -21,7 +21,7 @@ Dooray 이력을 이해하고 현재 저장소 코드에 어떻게 적용하거�
 저장소 루트에서 이력 전체를 조회한다.
 
 ```
-python Dooray/dooray.py full <업무번호>
+dooray full <업무번호>
 ```
 
 `full` 원본은 분석 자료로만 사용하고 사용자 응답에 그대로 복사하지 않는다. 태그가 있으면 작업 성격을 판단하는 보조 근거로 사용하되 본문과 댓글의 구체적인 요구사항을 우선한다.
@@ -29,7 +29,7 @@ python Dooray/dooray.py full <업무번호>
 첨부파일이 요구사항에 직접 언급됐거나 구현 판단에 필요하면 다음 명령으로 다운로드한다.
 
 ```
-python Dooray/dooray.py download <업무번호> <파일명>
+dooray download <업무번호> <파일명>
 ```
 
 - 다운로드 경로는 `Dooray/report/<업무번호>/download/<파일명>`이다.
@@ -65,7 +65,7 @@ python Dooray/dooray.py download <업무번호> <파일명>
 
 기존 보고서가 있으면 새 보고서를 뒤에 통째로 붙이지 않는다. 본문은 최신 분석으로 갱신하되 최초 작성 시각과 기존 갱신 이력은 유지한다. 기존 결론을 변경하거나 제거하거나 열린 질문에 답이 추가되면 그 이유를 새 갱신 이력으로 남긴다.
 
-PowerShell에서 `Get-Date -Format "yyyy-MM-dd HH:mm"`으로 현재 시각을 구한다. 처음 작성할 때는 최초 작성과 최종 갱신 시각을 현재 시각으로 기록한다. 갱신할 때는 최초 작성 시각을 유지하고 최종 갱신 시각만 바꾼다.
+현재 셸에서 로컬 시각을 `yyyy-MM-dd HH:mm` 형식으로 구한다. PowerShell에서는 `Get-Date -Format "yyyy-MM-dd HH:mm"`, bash/zsh에서는 `date "+%Y-%m-%d %H:%M"`를 사용한다. 처음 작성할 때는 최초 작성과 최종 갱신 시각을 현재 시각으로 기록한다. 갱신할 때는 최초 작성 시각을 유지하고 최종 갱신 시각만 바꾼다.
 
 `apply_patch`를 사용해 다음 파일을 생성하거나 갱신한다.
 

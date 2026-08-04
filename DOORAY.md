@@ -16,6 +16,7 @@
 
 | 요청 | Skill | 기능 |
 |---|---|---|
+| 최초 설치 또는 실행 명령 복구 | `dooray-init` | OS를 확인해 launcher, PATH, 셸 단축 명령 설정 |
 | 미완료 담당 업무 목록 | `dooray-list` | 최신 등록순으로 지정 개수 조회 |
 | 업무 내용 | `dooray-read` | 제목, 상태, 본문, 첨부파일 조회 |
 | 전체 맥락 또는 댓글 이력 | `dooray-read-full` | 업무 내용과 댓글 조회 |
@@ -24,13 +25,14 @@
 | 상태 변경 | `dooray-status-change` | 현재 상태와 상태 목록 확인 후 변경 |
 | 댓글 등록 | `dooray-reply` | 사용자가 지정한 댓글 등록 |
 | 적용 방안 보고서 | `dooray-report` | 전체 이력과 저장소 코드를 분석해 `REPORT.md` 생성·갱신 |
-| PowerShell 단축 명령 설치 | `dooray-shell-setup` | PowerShell 프로필에 함수 등록 |
 
 현재 실행 환경에 맞는 Skill의 `SKILL.md`를 읽고 그 절차를 우선 적용한다. Claude Code에서는 `.claude/skills/`, Codex에서는 `.agents/skills/`를 사용한다.
 
 ## 공통 실행 규칙
 
 - CLI 명령은 저장소 루트에서 실행한다. 상대경로가 `Dooray/dooray.py`를 기준으로 한다.
+- 일반 Skill은 초기화된 `dooray` launcher를 사용하며 OS를 다시 판별하지 않는다.
+- `dooray` 명령이 없으면 자동으로 PATH나 프로필을 수정하지 말고, Codex에서는 `$dooray-init`, Claude Code에서는 `/dooray-init`을 직접 호출하도록 안내한다.
 - 조회 Skill의 결과는 해당 Skill 지시에 따라 원본 그대로 즉시 보여주고 임의로 요약하거나 재작성하지 않는다.
 - 단, `dooray-report`는 분석 Skill이므로 `full` 원본을 응답에 그대로 출력하지 않고 분석 자료로만 사용한다. 생성하거나 갱신한 `REPORT.md`의 내용만 화면에 그대로 출력한다.
 - 댓글 내용은 사용자가 준 문구를 임의로 다듬지 않는다.
@@ -42,22 +44,22 @@
 ## CLI 대응표
 
 ```text
-python Dooray/dooray.py list 개수
-python Dooray/dooray.py read 업무번호
-python Dooray/dooray.py full 업무번호 선택적-댓글-개수
-python Dooray/dooray.py link 업무번호
-python Dooray/dooray.py status 업무번호
-python Dooray/dooray.py workflows
-python Dooray/dooray.py setstatus 업무번호 "상태명"
-python Dooray/dooray.py comment 업무번호 --file 임시파일경로
-python Dooray/dooray.py download 업무번호 파일명-또는-번호-또는-all
+dooray list 개수
+dooray read 업무번호
+dooray full 업무번호 선택적-댓글-개수
+dooray link 업무번호
+dooray status 업무번호
+dooray workflows
+dooray setstatus 업무번호 "상태명"
+dooray comment 업무번호 --file 임시파일경로
+dooray download 업무번호 파일명-또는-번호-또는-all
 ```
 
 댓글을 등록할 때는 셸 인젝션과 인코딩 문제를 피하도록 댓글을 임시 파일에 기록하고 `--file`로 전달한 뒤 임시 파일을 제거한다.
 
-## PowerShell 단축 명령
+## 셸 단축 명령
 
-`dooray-shell-setup`이 등록한 명령은 현재 디렉터리를 기준으로 `Dooray\dooray.py`를 찾는다. 따라서 현재 구현에서는 저장소 루트에서 실행한다. `Dooray` 폴더 안에서 실행하면 `Dooray\Dooray\dooray.py`를 찾게 되어 실패한다.
+`dooray-init`이 설치한 launcher와 단축 명령은 현재 디렉터리를 기준으로 `Dooray/dooray.py`를 찾는다. 따라서 저장소 루트에서 실행한다. `Dooray` 폴더 안에서 실행하면 `Dooray/Dooray/dooray.py`를 찾게 되어 실패한다.
 
 `dooray-status-change`는 대화형 Skill이므로 단일 셸 함수가 없다. 터미널에서는 다음 순서로 실행한다.
 

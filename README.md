@@ -95,36 +95,57 @@ python Dooray/dooray.py download 업무번호 [파일명|번호|all]  첨부를 
 
 ### 단축 명령으로 짧게 쓰기
 
-매번 `python Dooray\dooray.py ...`를 치는 대신, Claude Code나 Codex에서
-`/dooray-shell-setup`을 한 번 호출하면 PowerShell 프로필(`$PROFILE`)에 슬래시 명령과 같은
-이름의 함수가 등록된다. **PowerShell 전용이다**(cmd·macOS·Linux 셸에서는 동작하지 않는다).
-PowerShell 창을 새로 열거나 `. $PROFILE`을 실행한 뒤부터 이렇게 쓸 수 있다.
-등록은 최초 1회만 에이전트를 쓰고(그때만 토큰이 든다), 이후 단축 명령 실행은 전부 토큰 0이다.
+매번 `python Dooray\dooray.py ...`를 치는 대신, 최초 1회 `init`을 실행하면 `dooray`라는
+명령 하나로 줄어든다. **Windows·macOS·Linux 모두 지원한다.**
 
-```text
-dooray-list 5            = python Dooray\dooray.py list 5
-dooray-read 1287         
-dooray-read-full 1287       
-dooray-status 1287
-dooray-link 1287         
-dooray-workflows            
-dooray-download 1287 all
-dooray-setstatus 1287 "DEV 완료"                     
-dooray-reply 1287 "확인했습니다"
+```powershell
+python Dooray/dooray.py init      # macOS·Linux는 python3
 ```
 
+`init`은 launcher 하나를 설치하고 PATH에 등록한다.
+
+- Windows: `%LOCALAPPDATA%\DoorayForDev\bin\dooray.cmd` + 사용자 PATH 등록
+- macOS·Linux: `~/.local/bin/dooray` (PATH에 없으면 셸 프로필에 추가해야 한다)
+
+새 터미널을 열면 (또는 PowerShell `. $PROFILE`, bash `source ~/.bashrc`) 이렇게 쓸 수 있다.
+
+```text
+dooray list 5            = python Dooray\dooray.py list 5
+dooray read 1287
+dooray full 1287
+dooray status 1287
+dooray link 1287
+dooray workflows
+dooray download 1287 all
+dooray setstatus 1287 "DEV 완료"
+dooray comment 1287 "확인했습니다"
+dooray help                        # 사용법 출력 (Config.md 없이도 동작)
+```
+
+에이전트에서 하고 싶으면 `/dooray-init`(Claude Code) / `$dooray-init`(Codex)이 위 과정을
+대신 해주고, 슬래시 명령과 같은 이름의 셸 함수(`dooray-read`, `dooray-list` …)까지 셸
+프로필에 등록해준다. **에이전트를 쓰는 건 이 최초 1회뿐이고(그때만 토큰이 든다), 이후 명령
+실행은 전부 토큰 0이다.**
+
+`dooray`는 **현재 폴더의 `Dooray/dooray.py`를 실행한다.** 그래서 `init` 자체는 계정당 1회면
+충분하고, 작업 프로젝트 루트로 `cd`할 때마다 그 프로젝트의 `Dooray/`와 `Config.md`로 동작한다
+([프로젝트마다 따로 설치한다](#프로젝트마다-따로-설치한다)에서 말한 `Dooray/` 폴더 복사는
+프로젝트별로 여전히 필요하다). `Dooray/`가 없는 폴더에서 실행하면 그 사실을 알리고 멈춘다.
+
+launcher에는 `init` 시점의 Python 절대경로가 박히므로, Python을 재설치·이동했으면
+`init`을 다시 실행한다.
 
 ### 출력 형식
 
 출력은 사람·AI가 그대로 읽는 텍스트다.
 
 ```console
-$ python Dooray/dooray.py list 3
+$ dooray list 3
 PROJ / 1287 - DEV 진행중 - 토큰 갱신 실패 처리 (작성자: 홍길동)
 PROJ / 1274 - DEV 대기 - 목록 정렬 기준 변경 (작성자: 김영희)
 PROJ / 1260 - DEV 리뷰 - 첨부 다운로드 경로 정리 (작성자: 홍길동)
 
-$ python Dooray/dooray.py full 1287
+$ dooray full 1287
 #1287 토큰 갱신 실패 처리
 상태: DEV 진행중
 태그: BUG
@@ -144,6 +165,7 @@ $ python Dooray/dooray.py full 1287
 
 Claude Code와 Codex는 각각 `.claude/skills/`, `.agents/skills/`의 `dooray-*` Skill로 위CLI를 호출한다. 
 Skill은 모델이 자연어로 알아서 실행하지 않고(`disable-model-invocation`), 아래 **슬래시 명령으로 직접 호출**해야 한다.
+
 | 슬래시 명령 | 기능 |
 |---|---|
 | `/dooray-list <개수>` | 미완료 담당 업무를 최신순으로 N개 |
@@ -152,7 +174,7 @@ Skill은 모델이 자연어로 알아서 실행하지 않고(`disable-model-inv
 | `/dooray-status <업무번호>` | 현재 상태만 확인 |
 | `/dooray-link <업무번호>` | 업무 웹 주소 |
 | `/dooray-reply <업무번호> <댓글 내용>` | 댓글 등록 |
-| `/dooray-shell-setup` | 위 단축 명령을 PowerShell `$PROFILE`에 등록 (최초 1회) |
+| `/dooray-init` | `dooray` launcher와 셸 단축 명령을 설치 (최초 1회) |
 
 댓글 등록·상태 변경 같은 쓰기 작업은 사용자의 명시적 요청 없이 실행하지 않는다. 상세 지침은
 `DOORAY.md`(Claude Code) / `AGENTS.md`(Codex) 참고.
@@ -164,7 +186,7 @@ Skill은 모델이 자연어로 알아서 실행하지 않고(`disable-model-inv
 
 | 슬래시 명령 | 왜 에이전트여야 하나 |
 |---|---|
-| **`/dooray-status-change <업무번호>`** | 현재 상태와 프로젝트의 상태 목록을 먼저 조회해 **선택지로 제시하고**, 고른 이름으로 변경까지 한다. 대화형이라 셸 함수로 만들 수 없다 — 단축 명령에 유일하게 빠져 있는 항목이다. 터미널로 하면 `dooray-status` → `dooray-workflows` → `dooray-setstatus "상태명"`을 직접 이어 실행하며 상태명을 정확히 옮겨 적어야 한다. |
+| **`/dooray-status-change <업무번호>`** | 현재 상태와 프로젝트의 상태 목록을 먼저 조회해 **선택지로 제시하고**, 고른 이름으로 변경까지 한다. 대화형이라 셸 함수로 만들 수 없다 — 단축 명령에 유일하게 빠져 있는 항목이다. 터미널로 하면 `dooray status` → `dooray workflows` → `dooray setstatus "상태명"`을 직접 이어 실행하며 상태명을 정확히 옮겨 적어야 한다. |
 | **`/dooray-report <업무번호>`** | **대응하는 CLI 명령이 없다.** 본문·댓글을 읽고, 첨부(`.md`·`.csv`·`.json`·`.png`·`.jpg`·`.pdf`)를 내려받아 직접 읽고, 프로젝트 코드를 탐색해 **"이 저장소에 어떻게 적용할지" 방안을 `Dooray/report/<번호>/REPORT.md`로 작성·갱신**한다. 확인한 사실만 쓰고, 못 정한 것은 "열린 질문"으로 남긴다. 구현은 하지 않는다. |
 
 `/dooray-report`는 규모 있는 작업을 시작할 때의 입구다 — 이력을 파악해 방안 문서를 만들고,
@@ -256,6 +278,8 @@ projectId·workflowId·memberId·tagId 해석을 도구 안에서 끝내 모델�
 | `Dooray API 오류 (HTTP 401)` | 토큰이 만료·오타·권한 부족. 토큰 재발급 |
 | `응답이 N초 안에 오지 않았습니다` | 네트워크 지연. `Config.md`의 `RESPONSE_TIME=` 값을 늘림 |
 | `link`/`이력 주소 확인 불가` | `Config.md`에 `TENANT=` 설정 필요 |
+| `dooray` 명령을 찾을 수 없음 | `init` 후 터미널을 새로 열지 않았거나 PATH 미반영. macOS·Linux는 `~/.local/bin`이 PATH에 있는지 확인 |
+| `다른 dooray 명령이 이미 PATH에 있습니다` | 이름이 겹치는 다른 도구가 있다. 그쪽을 제거하거나, `init` 없이 `python Dooray/dooray.py ...`로 사용 |
 
 ## 라이선스
 
