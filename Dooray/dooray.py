@@ -2,7 +2,7 @@
 """Dooray 업무 연동 코어 스크립트.
 
 설정: Dooray/Config.md (KEY=VALUE 형식, 이 스크립트와 같은 폴더)
-  DOORAY_API_TOKEN, REPOSITORY, TENANT, WORKING, COMPLETED, COMPANY(선택, @멘션 검색을 이 회사 이메일 도메인으로 한정)
+  DOORAY_API_TOKEN, REPOSITORY, TENANT, COMPANY(선택, @멘션 검색을 이 회사 이메일 도메인으로 한정)
   RESPONSE_TIME(선택, API 응답 대기 초. 기본 10)
 
 최초 초기화 (저장소 루트에서 실행):
@@ -15,7 +15,7 @@
   dooray link <업무번호>              업무 웹 주소
   dooray status <업무번호>            현재 상태
   dooray workflows                    이 프로젝트의 상태 목록
-  dooray setstatus <업무번호> <상태명>  상태 변경 (--working / --completed 별칭 가능)
+  dooray setstatus <업무번호> <상태명>  상태 변경
   dooray comment <업무번호> <내용>     댓글 등록 (--file <경로> 로 파일에서 읽기 가능 — 셸 이스케이프 없이 안전)
   dooray download <업무번호> [파일명|번호]  첨부파일을 Dooray/report/<업무번호>/download/ 에 저장
   dooray list <개수>                  완료되지 않은 업무를 최신 등록순으로 N개
@@ -183,7 +183,9 @@ class Dooray:
         self.repo = cfg["REPOSITORY"]
         self.tenant = cfg.get("TENANT", "")
         self.company = cfg.get("COMPANY", "")
-        self.alias = {"--working": cfg.get("WORKING"), "--completed": cfg.get("COMPLETED")}
+        # 보류: --working / --completed 상태 별칭. Config.md 템플릿에서 WORKING=/COMPLETED= 를
+        # 뺐으므로 함께 비활성화한다. 되살리려면 이 줄과 resolve_workflow 의 별칭 분기를 함께 푼다.
+        # self.alias = {"--working": cfg.get("WORKING"), "--completed": cfg.get("COMPLETED")}
         raw_timeout = cfg.get("RESPONSE_TIME") or "10"
         try:
             self.timeout = int(raw_timeout)
@@ -366,11 +368,12 @@ class Dooray:
                          {"workflowId": workflow_id})
 
     def resolve_workflow(self, name):
-        """상태명(또는 --working/--completed 별칭) → workflow dict. 공백/대소문자 관대 비교."""
-        if name in self.alias:
-            if not self.alias[name]:
-                sys.exit(f"Dooray/Config.md 에 {'WORKING' if name == '--working' else 'COMPLETED'}= 설정이 없습니다.")
-            name = self.alias[name]
+        """상태명 → workflow dict. 공백/대소문자 관대 비교."""
+        # 보류: --working / --completed 별칭 처리. __init__ 의 self.alias 와 함께 되살린다.
+        # if name in self.alias:
+        #     if not self.alias[name]:
+        #         sys.exit(f"Dooray/Config.md 에 {'WORKING' if name == '--working' else 'COMPLETED'}= 설정이 없습니다.")
+        #     name = self.alias[name]
         norm = lambda s: s.replace(" ", "").lower()
         flows = self.workflows()
         for w in flows:
