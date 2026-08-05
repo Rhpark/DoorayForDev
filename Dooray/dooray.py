@@ -30,6 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from html.parser import HTMLParser
 from pathlib import Path
 
 BASE = "https://api.dooray.com"
@@ -379,9 +380,70 @@ class Dooray:
         sys.exit(f"상태 '{name}' 이(가) 없습니다. 가능한 상태: {names}")
 
 
+# ul/ol/table은 넣지 않는다. 자식인 li/tr이 이미 줄을 바꾸므로 빈 줄만 늘어난다.
+BLOCK_TAGS = {"p", "div", "br", "li", "tr", "hr", "blockquote", "pre",
+              "h1", "h2", "h3", "h4", "h5", "h6", "section", "article"}
+
+
+class _HtmlToText(HTMLParser):
+    """Dooray 위지윅 본문(text/html)을 터미널에서 읽을 수 있는 평문으로 바꾼다."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out = []
+        self.skip = 0
+        self.href = None
+        self.href_at = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self.skip += 1
+        elif tag in BLOCK_TAGS:
+            self.out.append("\n")
+            if tag == "li":
+                self.out.append("- ")
+        elif tag in ("td", "th"):
+            self.out.append("\t")
+        elif tag == "a":
+            self.href = dict(attrs).get("href")
+            self.href_at = len(self.out)
+        elif tag == "img":
+            alt = (dict(attrs).get("alt") or "").strip()
+            self.out.append(f"[이미지: {alt}]" if alt else "[이미지]")
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style"):
+            self.skip = max(0, self.skip - 1)
+        elif tag == "a":
+            if self.href and self.href != "".join(self.out[self.href_at:]).strip():
+                self.out.append(f" ({self.href})")
+            self.href = None
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.out.append(data)
+
+
+def html_to_text(src):
+    parser = _HtmlToText()
+    parser.feed(src)
+    parser.close()
+    text = re.sub(r"[ \xa0]+", " ", "".join(parser.out))
+    text = "\n".join(line.strip() for line in text.splitlines())
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def body_text(body):
+    body = body or {}
+    content = body.get("content") or ""
+    if "html" in (body.get("mimeType") or ""):
+        return html_to_text(content)
+    return content
+
+
 def fmt_post(p, tags_line=""):
     wf = (p.get("workflow") or {}).get("name", "?")
-    body = ((p.get("body") or {}).get("content") or "").strip()
+    body = body_text(p.get("body")).strip()
     head = f"#{p['number']} {p['subject']}\n상태: {wf}"
     if tags_line:
         head += f"\n{tags_line}"
@@ -412,7 +474,7 @@ def fmt_comments(logs, names):
     for c in logs:
         mid = ((c.get("creator") or {}).get("member") or {}).get("organizationMemberId")
         when = (c.get("createdAt") or "")[:16].replace("T", " ")
-        text = ((c.get("body") or {}).get("content") or "").strip()
+        text = body_text(c.get("body")).strip()
         lines.append(f"[{when}] {names.get(mid, '?')}: {text}")
     return "\n".join(lines) or "(댓글 없음)"
 
