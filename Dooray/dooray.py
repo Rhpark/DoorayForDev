@@ -17,7 +17,7 @@
   dooray workflows                    이 프로젝트의 상태 목록
   dooray setstatus <업무번호> <상태명>  상태 변경
   dooray comment <업무번호> <내용>     댓글 등록 (--file <경로> 로 파일에서 읽기 가능 — 셸 이스케이프 없이 안전)
-  dooray download <업무번호> [파일명|번호]  첨부파일을 Dooray/report/<업무번호>/download/ 에 저장
+  dooray download <업무번호> [파일명|번호|all]  첨부파일을 Dooray/report/<업무번호>/download/ 에 저장
   dooray list <개수>                  완료되지 않은 업무를 최신 등록순으로 N개
 """
 import json
@@ -481,6 +481,39 @@ def fmt_comments(logs, names):
         lines.append(f"[{when}] {names.get(mid, '?')}: {text}")
     return "\n".join(lines) or "(댓글 없음)"
 
+INLINE_IMG_TAG = re.compile(r"<img\b[^>]*>", re.I)
+INLINE_IMG_SRC = re.compile(r'src\s*=\s*"/files/(\d+)"', re.I)
+INLINE_IMG_ALT = re.compile(r'alt\s*=\s*"([^"]*)"', re.I)
+UNSAFE_NAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def inline_files(body):
+"""본문에 붙여넣은 인라인 이미지 목록을 첨부 목록과 같은 모양으로 돌려줍니다.
+
+    ★Dooray는 인라인 이미지를 `/posts/{id}/files` 목록에 넣지 않는다★ 실측으로 업무 #53·#57 모두
+    본문에 `<img src="/files/...">`가 있는데 목록 API는 빈 배열을 반환했다. 그래서 목록만 보고
+    "첨부파일 없음"으로 판단하면 실제로는 받을 수 있는 이미지를 놓친다.
+
+    `Dooray.download_file(post_id, file_id)`는 목록을 거치지 않고 **id만으로** 동작하므로,
+    본문에서 id를 뽑아 `{"id", "name"}` 항목으로 만들면 첨부파일과 동일한 경로로 내려받을 수 있다.
+
+    :param body: 업무 본문 문자열(`post_detail(...)["body"]["content"]`). None/빈 문자열 허용.
+    :returns: `[{"id": str, "name": str, "inline": True}, ...]`. 같은 id는 한 번만 담는다.
+    """
+found, seen = [], set()
+for tag in INLINE_IMG_TAG.findall(body or ""):
+src = INLINE_IMG_SRC.search(tag)
+if not src or src.group(1) in seen:
+continue
+file_id = src.group(1)
+seen.add(file_id)
+alt = INLINE_IMG_ALT.search(tag)
+# alt에 원본 파일명이 들어 있다(예: Inline-image-2026-08-18 15.43.42.133.png).
+# 없으면 id로 이름을 만든다. 파일명에 쓸 수 없는 문자는 치환한다(Windows).
+name = (alt.group(1).strip() if alt else "") or f"inline-{file_id}.png"
+found.append({"id": file_id, "name": UNSAFE_NAME_CHARS.sub("_", name), "inline": True})
+return found
+
 
 def fmt_files(files):
     if not files:
@@ -596,9 +629,15 @@ def main():
         print(f"#{number} 댓글 등록 완료")
     elif cmd == "download":
         post_id = d.find_post_id(number)
-        files = d.files(post_id)
+        with ThreadPoolExecutor() as ex:
+        files_f = ex.submit(d.files, post_id)
+        detail_f = ex.submit(d.post_detail, post_id)
+        files, detail = files_f.result(), detail_f.result()
+        # 첨부 목록 뒤에 본문 인라인 이미지를 이어 붙인다. 번호 지정과 all 이 둘 다에 걸린다.
+        # ★목록만 보고 종료하지 말 것★ 인라인 이미지는 목록에 없다(inline_files 주석 참조).
+        files = list(files) + inline_files((detail.get("body") or {}).get("content"))
         if not files:
-            sys.exit(f"업무 #{number} 에 첨부파일이 없습니다.")
+            sys.exit(f"업무 #{number} 에 받을 수 있는 파일이 없습니다(첨부·본문 인라인 이미지 모두 없음).")
         target = rest[1] if len(rest) > 1 else None
         if target and target.lower() == "all":
             picks = files
