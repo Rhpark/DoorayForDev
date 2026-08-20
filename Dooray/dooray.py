@@ -477,40 +477,57 @@ def fmt_comments(logs, names):
     for c in logs:
         mid = ((c.get("creator") or {}).get("member") or {}).get("organizationMemberId")
         when = (c.get("createdAt") or "")[:16].replace("T", " ")
-        text = body_text(c.get("body")).strip()
+        text = ((c.get("body") or {}).get("content") or "").strip()
         lines.append(f"[{when}] {names.get(mid, '?')}: {text}")
     return "\n".join(lines) or "(댓글 없음)"
 
 INLINE_IMG_TAG = re.compile(r"<img\b[^>]*>", re.I)
 INLINE_IMG_SRC = re.compile(r'src\s*=\s*"/files/(\d+)"', re.I)
 INLINE_IMG_ALT = re.compile(r'alt\s*=\s*"([^"]*)"', re.I)
+INLINE_IMG_ANY = re.compile(f"{INLINE_IMG_TAG.pattern}|{INLINE_IMG_MD.pattern}", re.I)
 UNSAFE_NAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def inline_files(body):
 """본문에 붙여넣은 인라인 이미지 목록을 첨부 목록과 같은 모양으로 돌려줍니다.
 
-    ★Dooray는 인라인 이미지를 `/posts/{id}/files` 목록에 넣지 않는다★ 실측으로 업무 #53·#57 모두
-    본문에 `<img src="/files/...">`가 있는데 목록 API는 빈 배열을 반환했다. 그래서 목록만 보고
+    ★Dooray는 인라인 이미지를 `/posts/{id}/files` 목록에 넣지 않는다★ 
+    본문에 이미지가 있는데 목록 API는 빈 배열을 반환했다. 그래서 목록만 보고
     "첨부파일 없음"으로 판단하면 실제로는 받을 수 있는 이미지를 놓친다.
 
+    ★HTML `<img src="/files/...">`와 마크다운 `![alt](/files/...)` 둘 다 인식한다★ 이미지 표기는
+    작성자 입력 방식에 따라 이력마다 다르다(#53·#57은 HTML 태그, #60은 마크다운). `mimeType`은
+    셋 다 `text/x-markdown`이라 표기 형태를 알려주지 않으므로 둘 다 훑어야 한다.
+    
     `Dooray.download_file(post_id, file_id)`는 목록을 거치지 않고 **id만으로** 동작하므로,
     본문에서 id를 뽑아 `{"id", "name"}` 항목으로 만들면 첨부파일과 동일한 경로로 내려받을 수 있다.
 
     :param body: 업무 본문 문자열(`post_detail(...)["body"]["content"]`). None/빈 문자열 허용.
-    :returns: `[{"id": str, "name": str, "inline": True}, ...]`. 같은 id는 한 번만 담는다.
+    :returns: `[{"id": str, "name": str, "inline": True}, ...]`. 같은 id는 한 번만 담고
+              본문 등장 순서를 유지한다. 같은 이미지를 두 문법으로 참조해도 한 번만 담는다.
     """
 found, seen = [], set()
-for tag in INLINE_IMG_TAG.findall(body or ""):
-src = INLINE_IMG_SRC.search(tag)
-if not src or src.group(1) in seen:
+for match in INLINE_IMG_ANY.finditer(body or ""):
+chunk = match.group(0)
+md = INLINE_IMG_MD.match(chunk)
+if md:
+# 마크다운은 대괄호 안이 곧 alt(=원본 파일명)이고 괄호 안이 id다.
+name, file_id = md.group(1).strip(), md.group(2)
+else:
+src = INLINE_IMG_SRC.search(chunk)
+if not src:
+continue  # 외부 호스트 이미지 등 이 API로 받을 수 없는 <img>.
+file_id = src.group(1)
+alt = INLINE_IMG_ALT.search(chunk)
+name = alt.group(1).strip() if alt else ""
+if file_id in seen:
 continue
 file_id = src.group(1)
 seen.add(file_id)
 alt = INLINE_IMG_ALT.search(tag)
 # alt에 원본 파일명이 들어 있다(예: Inline-image-2026-08-18 15.43.42.133.png).
 # 없으면 id로 이름을 만든다. 파일명에 쓸 수 없는 문자는 치환한다(Windows).
-name = (alt.group(1).strip() if alt else "") or f"inline-{file_id}.png"
+name = name or f"inline-{file_id}.png"
 found.append({"id": file_id, "name": UNSAFE_NAME_CHARS.sub("_", name), "inline": True})
 return found
 
