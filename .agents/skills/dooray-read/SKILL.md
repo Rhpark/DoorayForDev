@@ -8,13 +8,13 @@ description: Dooray 업무 번호로 제목, 현재 상태, 본문과 첨부파�
 저장소 루트에서 다음 명령을 실행한다.
 
 ```text
-dooray read 업무번호
+python Dooray/dooray.py read 업무번호
 ```
 
-원본 결과만 그대로 즉시 보여준다. 요약하지 않는다. 도구 출력 상자는 터미널이 접을 수 있으니, 결과 전체를 답변 본문 코드블록에 붙여넣는다.
+원본 결과만 그대로 즉시 보여준다. 요약하지 않는다.
 
 첨부파일 다운로드를 요청하면 다음 명령을 실행한다.
 
 ```text
-dooray download 업무번호 파일명-또는-번호-또는-all
+python Dooray/dooray.py download 업무번호 선택적-파일명
 ```
