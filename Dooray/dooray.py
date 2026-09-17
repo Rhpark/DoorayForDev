@@ -2,160 +2,33 @@
 """Dooray 업무 연동 코어 스크립트.
 
 설정: Dooray/Config.md (KEY=VALUE 형식, 이 스크립트와 같은 폴더)
-  DOORAY_API_TOKEN, REPOSITORY, TENANT, COMPANY(선택, @멘션 검색을 이 회사 이메일 도메인으로 한정)
+  DOORAY_API_TOKEN, REPOSITORY, TENANT, WORKING, COMPLETED, COMPANY(선택, @멘션 검색을 이 회사 이메일 도메인으로 한정)
   RESPONSE_TIME(선택, API 응답 대기 초. 기본 10)
 
-최초 초기화 (저장소 루트에서 실행):
-  Windows:      python Dooray/dooray.py init
-  macOS/Linux:  python3 Dooray/dooray.py init
-
-초기화 후 사용법 (저장소 루트에서 실행):
-  dooray read <업무번호>              제목 + 상태 + 본문
-  dooray full <업무번호> [개수]        read + 태그 + 댓글 이력 (개수 생략 시 전체, 지정 시 최신 N개)
-  dooray link <업무번호>              업무 웹 주소
-  dooray status <업무번호>            현재 상태
-  dooray workflows                    이 프로젝트의 상태 목록
-  dooray setstatus <업무번호> <상태명>  상태 변경
-  dooray comment <업무번호> <내용>     댓글 등록 (--file <경로> 로 파일에서 읽기 가능 — 셸 이스케이프 없이 안전)
-  dooray download <업무번호> [파일명|번호|all]  첨부파일을 Dooray/report/<업무번호>/download/ 에 저장
-  dooray list <개수>                  완료되지 않은 업무를 최신 등록순으로 N개
+사용법 (저장소 루트에서 실행):
+  python Dooray/dooray.py read <업무번호>              제목 + 상태 + 본문
+  python Dooray/dooray.py full <업무번호> [개수]        read + 댓글 이력 (개수 생략 시 전체, 지정 시 최신 N개)
+  python Dooray/dooray.py link <업무번호>              업무 웹 주소
+  python Dooray/dooray.py status <업무번호>            현재 상태
+  python Dooray/dooray.py workflows                    이 프로젝트의 상태 목록
+  python Dooray/dooray.py setstatus <업무번호> <상태명>  상태 변경 (--working / --completed 별칭 가능)
+  python Dooray/dooray.py comment <업무번호> <내용>     댓글 등록 (--file <경로> 로 파일에서 읽기 가능 — 셸 이스케이프 없이 안전)
+  python Dooray/dooray.py download <업무번호> [파일명]  파일명 생략 시 전체. download/<파일ID>_<파일명>으로 저장
+  python Dooray/dooray.py list <개수>                  완료되지 않은 업무를 최신 등록순으로 N개
 """
 import json
-import os
 import re
-import shutil
-import stat
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from html.parser import HTMLParser
 from pathlib import Path
 
 BASE = "https://api.dooray.com"
 CONF = Path(__file__).parent / "Config.md"
-KNOWN_CMDS = {"init", "help", "read", "full", "link", "status", "workflows", "setstatus", "comment", "download", "list"}
+KNOWN_CMDS = {"read", "full", "link", "status", "workflows", "setstatus", "comment", "download", "list"}
 CLOSED_EXCLUDED_CLASSES = "backlog,registered,working"
-PYTHON_CMD = "python" if sys.platform == "win32" else "python3"
-LAUNCHER_MARKER = "DoorayForDev launcher"
-
-
-def current_platform():
-    if sys.platform == "win32":
-        return "windows"
-    if sys.platform == "darwin":
-        return "macos"
-    if sys.platform.startswith("linux"):
-        return "linux"
-    raise RuntimeError(f"지원하지 않는 플랫폼입니다: {sys.platform}")
-
-
-def default_launcher_dir(platform):
-    if platform == "windows":
-        base = os.environ.get("LOCALAPPDATA")
-        if base:
-            return Path(base) / "DoorayForDev" / "bin"
-        return Path.home() / "AppData" / "Local" / "DoorayForDev" / "bin"
-    return Path.home() / ".local" / "bin"
-
-
-def launcher_text(platform, python_executable):
-    if platform == "windows":
-        python_path = str(Path(python_executable).resolve())
-        return (
-            "@echo off\n"
-            f"rem {LAUNCHER_MARKER}\n"
-            "if not exist \"%CD%\\Dooray\\dooray.py\" (\n"
-            "  >&2 echo Dooray/dooray.py를 찾을 수 없습니다. 저장소 루트에서 실행하세요.\n"
-            "  exit /b 1\n"
-            ")\n"
-            f'"{python_path}" "%CD%\\Dooray\\dooray.py" %*\n'
-        )
-    if platform in {"macos", "linux"}:
-        python_path = str(python_executable)
-        if not python_path.startswith("/"):
-            python_path = Path(python_path).resolve().as_posix()
-        escaped_python = "'" + python_path.replace("'", "'\"'\"'") + "'"
-        return (
-            "#!/bin/sh\n"
-            f"# {LAUNCHER_MARKER}\n"
-            'script="$PWD/Dooray/dooray.py"\n'
-            'if [ ! -f "$script" ]; then\n'
-            "  echo 'Dooray/dooray.py를 찾을 수 없습니다. 저장소 루트에서 실행하세요.' >&2\n"
-            "  exit 1\n"
-            "fi\n"
-            f'exec {escaped_python} "$script" "$@"\n'
-        )
-    raise RuntimeError(f"지원하지 않는 플랫폼입니다: {platform}")
-
-
-def install_launcher(platform=None, install_dir=None, python_executable=None, check_path=True):
-    platform = platform or current_platform()
-    install_dir = Path(install_dir) if install_dir else default_launcher_dir(platform)
-    python_executable = python_executable or sys.executable
-    launcher = install_dir / ("dooray.cmd" if platform == "windows" else "dooray")
-
-    if check_path:
-        existing = shutil.which("dooray")
-        if existing and Path(existing).resolve() != launcher.resolve():
-            raise RuntimeError(f"다른 dooray 명령이 이미 PATH에 있습니다: {existing}")
-
-    if launcher.exists():
-        existing_text = launcher.read_text(encoding="utf-8", errors="replace")
-        if LAUNCHER_MARKER not in existing_text:
-            raise RuntimeError(f"기존 파일을 덮어쓸 수 없습니다: {launcher}")
-
-    install_dir.mkdir(parents=True, exist_ok=True)
-    launcher.write_text(launcher_text(platform, python_executable), encoding="utf-8")
-    if platform != "windows":
-        launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    return launcher
-
-
-def add_windows_user_path(directory):
-    import ctypes
-    import winreg
-
-    directory = str(Path(directory).resolve())
-    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
-        try:
-            current, value_type = winreg.QueryValueEx(key, "Path")
-        except FileNotFoundError:
-            current, value_type = "", winreg.REG_EXPAND_SZ
-        entries = [item for item in current.split(";") if item]
-        if any(os.path.normcase(os.path.expandvars(item).rstrip("\\/")) == os.path.normcase(directory.rstrip("\\/")) for item in entries):
-            return False
-        updated = ";".join(entries + [directory])
-        winreg.SetValueEx(key, "Path", 0, value_type, updated)
-    try:
-        result = ctypes.c_size_t()
-        ctypes.windll.user32.SendMessageTimeoutW(
-            0xFFFF, 0x001A, 0, "Environment", 0x0002, 5000, ctypes.byref(result)
-        )
-    except (AttributeError, OSError):
-        pass
-    return True
-
-
-def init_command():
-    platform = current_platform()
-    try:
-        launcher = install_launcher(platform=platform)
-        path_changed = add_windows_user_path(launcher.parent) if platform == "windows" else None
-    except (OSError, RuntimeError) as exc:
-        sys.exit(f"Dooray 초기화 실패: {exc}")
-
-    print(f"플랫폼: {platform}")
-    print(f"Python: {Path(sys.executable).resolve()}")
-    print(f"launcher 설치 완료: {launcher}")
-    if path_changed is True:
-        print("Windows 사용자 PATH에 launcher 폴더를 추가했습니다.")
-    elif path_changed is False:
-        print("Windows 사용자 PATH에 launcher 폴더가 이미 등록되어 있습니다.")
-    else:
-        print("셸 프로필에 launcher 폴더를 PATH로 등록해야 합니다.")
-    print("셸 단축 명령 설정 후 터미널과 AI 에이전트를 다시 시작하세요.")
 
 
 def load_config():
@@ -163,7 +36,6 @@ def load_config():
         sys.exit(f"{CONF} 가 없습니다. DOORAY_API_TOKEN=, REPOSITORY= 등을 담은 설정 파일을 먼저 만드세요.")
     cfg = {}
     for line in CONF.read_text(encoding="utf-8").splitlines():
-        line = line.split("#", 1)[0]  # 인라인 주석 제거
         if "=" in line:
             k, v = line.split("=", 1)
             k = k.strip()
@@ -183,9 +55,7 @@ class Dooray:
         self.repo = cfg["REPOSITORY"]
         self.tenant = cfg.get("TENANT", "")
         self.company = cfg.get("COMPANY", "")
-        # 보류: --working / --completed 상태 별칭. Config.md 템플릿에서 WORKING=/COMPLETED= 를
-        # 뺐으므로 함께 비활성화한다. 되살리려면 이 줄과 resolve_workflow 의 별칭 분기를 함께 푼다.
-        # self.alias = {"--working": cfg.get("WORKING"), "--completed": cfg.get("COMPLETED")}
+        self.alias = {"--working": cfg.get("WORKING"), "--completed": cfg.get("COMPLETED")}
         raw_timeout = cfg.get("RESPONSE_TIME") or "10"
         try:
             self.timeout = int(raw_timeout)
@@ -239,11 +109,6 @@ class Dooray:
 
     def workflows(self):
         return self._api(f"/project/v1/projects/{self.pid}/workflows")["result"]
-
-    def tag_names(self):
-        """프로젝트 태그 목록 → {tagId: 이름}. API 1번으로 전체 매핑을 얻는다."""
-        return {t["id"]: t["name"]
-                for t in self._api(f"/project/v1/projects/{self.pid}/tags")["result"]}
 
     def list_open_posts(self, limit):
         """내가 담당자인, 완료(closed)되지 않은 업무를 최신 등록순으로 최대 limit개.
@@ -368,12 +233,11 @@ class Dooray:
                          {"workflowId": workflow_id})
 
     def resolve_workflow(self, name):
-        """상태명 → workflow dict. 공백/대소문자 관대 비교."""
-        # 보류: --working / --completed 별칭 처리. __init__ 의 self.alias 와 함께 되살린다.
-        # if name in self.alias:
-        #     if not self.alias[name]:
-        #         sys.exit(f"Dooray/Config.md 에 {'WORKING' if name == '--working' else 'COMPLETED'}= 설정이 없습니다.")
-        #     name = self.alias[name]
+        """상태명(또는 --working/--completed 별칭) → workflow dict. 공백/대소문자 관대 비교."""
+        if name in self.alias:
+            if not self.alias[name]:
+                sys.exit(f"Dooray/Config.md 에 {'WORKING' if name == '--working' else 'COMPLETED'}= 설정이 없습니다.")
+            name = self.alias[name]
         norm = lambda s: s.replace(" ", "").lower()
         flows = self.workflows()
         for w in flows:
@@ -383,82 +247,10 @@ class Dooray:
         sys.exit(f"상태 '{name}' 이(가) 없습니다. 가능한 상태: {names}")
 
 
-# ul/ol/table은 넣지 않는다. 자식인 li/tr이 이미 줄을 바꾸므로 빈 줄만 늘어난다.
-BLOCK_TAGS = {"p", "div", "br", "li", "tr", "hr", "blockquote", "pre",
-              "h1", "h2", "h3", "h4", "h5", "h6", "section", "article"}
-
-
-class _HtmlToText(HTMLParser):
-    """Dooray 위지윅 본문(text/html)을 터미널에서 읽을 수 있는 평문으로 바꾼다."""
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.out = []
-        self.skip = 0
-        self.href = None
-        self.href_at = 0
-
-    def handle_starttag(self, tag, attrs):
-        if tag in ("script", "style"):
-            self.skip += 1
-        elif tag in BLOCK_TAGS:
-            self.out.append("\n")
-            if tag == "li":
-                self.out.append("- ")
-        elif tag in ("td", "th"):
-            self.out.append("\t")
-        elif tag == "a":
-            self.href = dict(attrs).get("href")
-            self.href_at = len(self.out)
-        elif tag == "img":
-            alt = (dict(attrs).get("alt") or "").strip()
-            self.out.append(f"[이미지: {alt}]" if alt else "[이미지]")
-
-    def handle_endtag(self, tag):
-        if tag in ("script", "style"):
-            self.skip = max(0, self.skip - 1)
-        elif tag == "a":
-            if self.href and self.href != "".join(self.out[self.href_at:]).strip():
-                self.out.append(f" ({self.href})")
-            self.href = None
-
-    def handle_data(self, data):
-        if not self.skip:
-            self.out.append(data)
-
-
-def html_to_text(src):
-    parser = _HtmlToText()
-    parser.feed(src)
-    parser.close()
-    text = re.sub(r"[ \xa0]+", " ", "".join(parser.out))
-    text = "\n".join(line.strip() for line in text.splitlines())
-    return re.sub(r"\n{3,}", "\n\n", text).strip()
-
-
-def body_text(body):
-    body = body or {}
-    content = body.get("content") or ""
-    if "html" in (body.get("mimeType") or ""):
-        return html_to_text(content)
-    return content
-
-
-def fmt_post(p, tags_line=""):
+def fmt_post(p):
     wf = (p.get("workflow") or {}).get("name", "?")
-    body = body_text(p.get("body")).strip()
-    head = f"#{p['number']} {p['subject']}\n상태: {wf}"
-    if tags_line:
-        head += f"\n{tags_line}"
-    return f"{head}\n\n{body or '(본문 없음)'}"
-
-
-def fmt_tags(p, tag_map):
-    ids = [t.get("id") for t in (p.get("tags") or [])]
-    if not ids:
-        return ""
-    names = [tag_map.get(i, i) for i in ids]
-    return "태그: " + ", ".join(names)
+    body = ((p.get("body") or {}).get("content") or "").strip()
+    return f"#{p['number']} {p['subject']}\n상태: {wf}\n\n{body or '(본문 없음)'}"
 
 
 def fmt_list(posts):
@@ -481,24 +273,31 @@ def fmt_comments(logs, names):
         lines.append(f"[{when}] {names.get(mid, '?')}: {text}")
     return "\n".join(lines) or "(댓글 없음)"
 
+
 INLINE_IMG_TAG = re.compile(r"<img\b[^>]*>", re.I)
 INLINE_IMG_SRC = re.compile(r'src\s*=\s*"/files/(\d+)"', re.I)
 INLINE_IMG_ALT = re.compile(r'alt\s*=\s*"([^"]*)"', re.I)
+# ★본문 문법은 두 가지다★ mimeType은 셋 다 text/x-markdown인데도 #53·#57은 본문에 HTML
+# <img> 태그가 그대로 박혀 있고 #60은 마크다운 ![alt](/files/id)였다(실측). mimeType으로는
+# 구분할 수 없으니 두 형태를 모두 훑는다 — 한쪽만 알면 나머지 이력에서 조용히 0건이 된다.
+INLINE_IMG_MD = re.compile(r"!\[([^\]]*)\]\(/files/(\d+)\)")
+# 두 문법을 본문 등장 순서대로 한 번에 훑는 스캐너. 문법별로 따로 훑어 이어 붙이면
+# 섞인 본문에서 순서가 뒤바뀐다(호출부가 번호로 파일을 고르므로 순서가 곧 계약이다).
 INLINE_IMG_ANY = re.compile(f"{INLINE_IMG_TAG.pattern}|{INLINE_IMG_MD.pattern}", re.I)
 UNSAFE_NAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def inline_files(body):
-"""본문에 붙여넣은 인라인 이미지 목록을 첨부 목록과 같은 모양으로 돌려줍니다.
+    """본문에 붙여넣은 인라인 이미지 목록을 첨부 목록과 같은 모양으로 돌려줍니다.
 
-    ★Dooray는 인라인 이미지를 `/posts/{id}/files` 목록에 넣지 않는다★ 
+    ★Dooray는 인라인 이미지를 `/posts/{id}/files` 목록에 넣지 않는다★ 실측으로 업무 #53·#57·#60 모두
     본문에 이미지가 있는데 목록 API는 빈 배열을 반환했다. 그래서 목록만 보고
     "첨부파일 없음"으로 판단하면 실제로는 받을 수 있는 이미지를 놓친다.
 
     ★HTML `<img src="/files/...">`와 마크다운 `![alt](/files/...)` 둘 다 인식한다★ 이미지 표기는
     작성자 입력 방식에 따라 이력마다 다르다(#53·#57은 HTML 태그, #60은 마크다운). `mimeType`은
     셋 다 `text/x-markdown`이라 표기 형태를 알려주지 않으므로 둘 다 훑어야 한다.
-    
+
     `Dooray.download_file(post_id, file_id)`는 목록을 거치지 않고 **id만으로** 동작하므로,
     본문에서 id를 뽑아 `{"id", "name"}` 항목으로 만들면 첨부파일과 동일한 경로로 내려받을 수 있다.
 
@@ -506,30 +305,70 @@ def inline_files(body):
     :returns: `[{"id": str, "name": str, "inline": True}, ...]`. 같은 id는 한 번만 담고
               본문 등장 순서를 유지한다. 같은 이미지를 두 문법으로 참조해도 한 번만 담는다.
     """
-found, seen = [], set()
-for match in INLINE_IMG_ANY.finditer(body or ""):
-chunk = match.group(0)
-md = INLINE_IMG_MD.match(chunk)
-if md:
-# 마크다운은 대괄호 안이 곧 alt(=원본 파일명)이고 괄호 안이 id다.
-name, file_id = md.group(1).strip(), md.group(2)
-else:
-src = INLINE_IMG_SRC.search(chunk)
-if not src:
-continue  # 외부 호스트 이미지 등 이 API로 받을 수 없는 <img>.
-file_id = src.group(1)
-alt = INLINE_IMG_ALT.search(chunk)
-name = alt.group(1).strip() if alt else ""
-if file_id in seen:
-continue
-file_id = src.group(1)
-seen.add(file_id)
-alt = INLINE_IMG_ALT.search(tag)
-# alt에 원본 파일명이 들어 있다(예: Inline-image-2026-08-18 15.43.42.133.png).
-# 없으면 id로 이름을 만든다. 파일명에 쓸 수 없는 문자는 치환한다(Windows).
-name = name or f"inline-{file_id}.png"
-found.append({"id": file_id, "name": UNSAFE_NAME_CHARS.sub("_", name), "inline": True})
-return found
+    found, seen = [], set()
+    for match in INLINE_IMG_ANY.finditer(body or ""):
+        chunk = match.group(0)
+        md = INLINE_IMG_MD.match(chunk)
+        if md:
+            # 마크다운은 대괄호 안이 곧 alt(=원본 파일명)이고 괄호 안이 id다.
+            name, file_id = md.group(1).strip(), md.group(2)
+        else:
+            src = INLINE_IMG_SRC.search(chunk)
+            if not src:
+                continue  # 외부 호스트 이미지 등 이 API로 받을 수 없는 <img>.
+            file_id = src.group(1)
+            alt = INLINE_IMG_ALT.search(chunk)
+            name = alt.group(1).strip() if alt else ""
+        if file_id in seen:
+            continue
+        seen.add(file_id)
+        # alt에 원본 파일명이 들어 있다(예: Inline-image-2026-08-18 15.43.42.133.png).
+        # 없으면 id로 이름을 만든다. 파일명에 쓸 수 없는 문자는 치환한다(Windows).
+        name = name or f"inline-{file_id}.png"
+        found.append({"id": file_id, "name": UNSAFE_NAME_CHARS.sub("_", name), "inline": True})
+    return found
+
+
+def collect_files(files, body, logs):
+    """첨부→본문→댓글 순으로 파일 ID를 병합하고 모든 발견 출처를 보존한다.
+
+    files는 첨부 API 목록, body는 업무 본문, logs는 조회한 댓글 목록이다.
+    입력을 수정하지 않는다. 반환 항목의 sources는 본문 또는 댓글 ID·시각을 식별한다.
+    """
+    merged = {}
+
+    def add(items, source):
+        for item in items:
+            file_id = str(item["id"])
+            if file_id not in merged:
+                merged[file_id] = {**item, "id": file_id, "sources": []}
+            if source not in merged[file_id]["sources"]:
+                merged[file_id]["sources"].append(source)
+
+    add(files, "첨부 목록")
+    add(inline_files(body), "본문")
+    for index, log in enumerate(logs, 1):
+        source = f"댓글 {log.get('id') or index} ({log.get('createdAt') or '시각 미상'})"
+        add(inline_files((log.get("body") or {}).get("content")), source)
+    return list(merged.values())
+
+
+def download_name(file):
+    """숫자 파일 ID를 접두사로 붙여 다른 ID의 동명 파일을 보존한다.
+
+    Windows 금지 문자와 경로 구분자는 치환한다. 잘못된 ID는 저장 전에 거절한다.
+    """
+    file_id = str(file["id"])
+    if not re.fullmatch(r"[0-9]+", file_id):
+        raise ValueError("파일 ID는 숫자여야 합니다")
+    name = UNSAFE_NAME_CHARS.sub("_", file["name"]).rstrip(" .") or "file"
+    return f"{file_id}_{name}"
+
+
+def fmt_file_catalog(files):
+    """수집된 파일의 ID·이름·출처를 표시한다. 다운로드 선택은 파일명으로 한다."""
+    lines = [f"  ID={f['id']} {f['name']} — {'; '.join(f['sources'])}" for f in files]
+    return "\n".join(lines) or "(파일 없음)"
 
 
 def fmt_files(files):
@@ -540,9 +379,9 @@ def fmt_files(files):
     if len(files) == 1:
         f = files[0]
         return f"\n\n첨부파일: {f['name']} ({size(f['size'])}) — 다운로드할까요?"
-    lines = [f"  {i}. {f['name']} ({size(f['size'])})" for i, f in enumerate(files, 1)]
+    lines = [f"  {f['name']} ({size(f['size'])})" for f in files]
     return (f"\n\n첨부파일 ({len(files)}개):\n" + "\n".join(lines) +
-            "\n\n다운로드할까요? (번호 또는 all)")
+            "\n\n다운로드할까요? (파일명 지정, 생략하면 전체)")
 
 
 def fmt_link(url):
@@ -563,22 +402,14 @@ def main():
     cmd, rest = args[0], args[1:]
     if cmd not in KNOWN_CMDS:
         sys.exit(f"알 수 없는 명령: {cmd}\n{__doc__}")
-    if cmd == "help":
-        print(__doc__)
-        return
-    if cmd == "init":
-        if rest:
-            sys.exit(f"init 명령에는 인자가 없습니다. 예: {PYTHON_CMD} Dooray/dooray.py init")
-        init_command()
-        return
     if cmd == "list":
         if not rest or not rest[0].isdigit():
-            sys.exit("조회할 개수가 필요합니다. 예: dooray list 5")
+            sys.exit("조회할 개수가 필요합니다. 예: python dooray.py list 5")
     elif cmd != "workflows" and not rest:
-        sys.exit("업무번호가 필요합니다. 예: dooray read 1")
+        sys.exit("업무번호가 필요합니다. 예: python dooray.py read 1")
     if cmd == "full" and len(rest) > 1:
         if len(rest) > 2 or not rest[1].isdigit() or int(rest[1]) <= 0:
-            sys.exit("댓글 개수는 양의 정수여야 합니다. 예: dooray full 1 10")
+            sys.exit("댓글 개수는 양의 정수여야 합니다. 예: python dooray.py full 1 10")
     d = Dooray()
 
     if cmd == "workflows":
@@ -604,12 +435,12 @@ def main():
             detail_f = ex.submit(d.post_detail, post_id)
             files_f = ex.submit(d.files, post_id)
             comments_f = ex.submit(d.comments, post_id, limit)
-            tags_f = ex.submit(d.tag_names)
-            p, files, logs, tag_map = (detail_f.result(), files_f.result(),
-                                       comments_f.result(), tags_f.result())
-        print(fmt_post(p, fmt_tags(p, tag_map)) + fmt_files(files) + fmt_link(d.task_url(post_id)))
+            p, files, logs = detail_f.result(), files_f.result(), comments_f.result()
+        print(fmt_post(p) + fmt_files(files) + fmt_link(d.task_url(post_id)))
         print("\n--- 댓글 ---")
         print(fmt_comments(logs, d.member_names(creator_ids(logs))))
+        print("\n--- 파일 목록 (조회한 본문·댓글 기준) ---")
+        print(fmt_file_catalog(collect_files(files, (p.get("body") or {}).get("content"), logs)))
     elif cmd == "link":
         if not d.tenant:
             sys.exit("Dooray/Config.md 에 TENANT= 설정이 필요합니다.")
@@ -619,7 +450,7 @@ def main():
         print(f"#{p['number']} {p['subject']}\n상태: {(p.get('workflow') or {}).get('name', '?')}")
     elif cmd == "setstatus":
         if len(rest) < 2:
-            sys.exit("상태명이 필요합니다. 예: dooray setstatus 1 \"DEV 진행중\"")
+            sys.exit("상태명이 필요합니다. 예: python dooray.py setstatus 1 \"DEV 진행중\"")
         with ThreadPoolExecutor() as ex:
             post_id_f = ex.submit(d.find_post_id, number)
             workflow_f = ex.submit(d.resolve_workflow, " ".join(rest[1:]))
@@ -628,7 +459,7 @@ def main():
         print(f"#{number} 상태 변경 완료: {w['name']}")
     elif cmd == "comment":
         if len(rest) < 2:
-            sys.exit("댓글 내용이 필요합니다. 예: dooray comment 1 \"내용\" 또는 --file <경로>")
+            sys.exit("댓글 내용이 필요합니다. 예: python dooray.py comment 1 \"내용\" 또는 --file <경로>")
         if rest[1] == "--file":
             if len(rest) < 3:
                 sys.exit("--file 뒤에 파일 경로가 필요합니다.")
@@ -647,39 +478,30 @@ def main():
     elif cmd == "download":
         post_id = d.find_post_id(number)
         with ThreadPoolExecutor() as ex:
-        files_f = ex.submit(d.files, post_id)
-        detail_f = ex.submit(d.post_detail, post_id)
-        files, detail = files_f.result(), detail_f.result()
-        # 첨부 목록 뒤에 본문 인라인 이미지를 이어 붙인다. 번호 지정과 all 이 둘 다에 걸린다.
-        # ★목록만 보고 종료하지 말 것★ 인라인 이미지는 목록에 없다(inline_files 주석 참조).
-        files = list(files) + inline_files((detail.get("body") or {}).get("content"))
+            files_f = ex.submit(d.files, post_id)
+            detail_f = ex.submit(d.post_detail, post_id)
+            comments_f = ex.submit(d.comments, post_id)
+            files, detail, logs = files_f.result(), detail_f.result(), comments_f.result()
+        files = collect_files(files, (detail.get("body") or {}).get("content"), logs)
         if not files:
-            sys.exit(f"업무 #{number} 에 받을 수 있는 파일이 없습니다(첨부·본문 인라인 이미지 모두 없음).")
+            sys.exit(f"업무 #{number} 에 받을 수 있는 파일이 없습니다(첨부·본문·댓글 이미지 모두 없음).")
         target = rest[1] if len(rest) > 1 else None
-        if target and target.lower() == "all":
-            picks = files
-        elif target:
-            if target.isdigit() and 1 <= int(target) <= len(files):
-                picks = [files[int(target) - 1]]
-            else:
-                matched = [f for f in files if f["name"] == target]
-                if not matched:
-                    names = ", ".join(f["name"] for f in files)
-                    sys.exit(f"'{target}' 파일을 찾을 수 없습니다. 첨부파일: {names}")
-                picks = matched
-        elif len(files) == 1:
-            picks = files
+        if target:
+            # 같은 이름이 여러 개면 모두 받는다. 저장명이 <파일ID>_<이름>이라 디스크에서 구분된다.
+            picks = [f for f in files if f["name"] == target]
+            if not picks:
+                sys.exit(f"'{target}' 파일을 찾을 수 없습니다. 받을 수 있는 파일:\n{fmt_file_catalog(files)}")
         else:
-            lines = "\n".join(f"  {i}. {f['name']}" for i, f in enumerate(files, 1))
-            sys.exit(f"첨부파일이 여러 개입니다. 파일명·번호 또는 all 을 지정하세요:\n{lines}")
+            picks = files
+        # 업무별로 나눈다. 한 폴더에 모으면 여러 이력의 같은 이름(특히 Inline-image-*.png)이 덮어써진다.
         out_dir = Path(__file__).parent / "report" / str(number) / "download"
         out_dir.mkdir(parents=True, exist_ok=True)
         with ThreadPoolExecutor() as ex:
             futures = {ex.submit(d.download_file, post_id, f["id"]): f for f in picks}
             for fut, f in futures.items():
-                out_path = out_dir / Path(f["name"]).name
+                out_path = out_dir / download_name(f)
                 out_path.write_bytes(fut.result())
-                print(f"다운로드 완료: {out_path}")
+                print(f"다운로드 완료: {out_path} — {'; '.join(f['sources'])}")
 
 
 if __name__ == "__main__":
