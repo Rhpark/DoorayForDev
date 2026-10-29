@@ -40,6 +40,10 @@ function dooray-setstatus { dooray setstatus @args }
 function dooray-reply { dooray comment @args }
 function dooray-list { dooray list @args }
 function dooray-download { dooray download @args }
+function dooray-wiki-list { dooray wiki-list @args }
+function dooray-wiki-read { dooray wiki-read @args }
+function dooray-wiki-write { dooray wiki-write @args }
+function dooray-wiki-download { dooray wiki-download @args }
 # === End Dooray shortcuts ===
 ```
 
@@ -57,6 +61,10 @@ dooray-setstatus() { dooray setstatus "$@"; }
 dooray-reply() { dooray comment "$@"; }
 dooray-list() { dooray list "$@"; }
 dooray-download() { dooray download "$@"; }
+dooray-wiki-list() { dooray wiki-list "$@"; }
+dooray-wiki-read() { dooray wiki-read "$@"; }
+dooray-wiki-write() { dooray wiki-write "$@"; }
+dooray-wiki-download() { dooray wiki-download "$@"; }
 # === End Dooray shortcuts ===
 ```
 

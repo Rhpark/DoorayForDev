@@ -6,7 +6,7 @@
 ## 요구 사항
 
 - **Python 3.8 이상** — 유일한 실행 요구 사항. 별도 `pip install` 없음
-  (`urllib`·`json`·`concurrent.futures` 등 표준 라이브러리만 사용)
+(`urllib`·`json`·`concurrent.futures` 등 표준 라이브러리만 사용)
   - 확인: `python --version` (macOS·Linux는 `python3 --version`)
   - 없으면 설치
     - Windows: `winget install Python.Python.3.12`
@@ -36,15 +36,18 @@ MyApp/                      ← Dooray와 연계된 내 작업 프로젝트 (여
 ├── Dooray/                 ← 폴더째로 복사
 │   ├── dooray.py
 │   ├── Config.md           ← 로컬 설정(직접 생성, 커밋 금지)
-│   └── report/             ← 자동 생성 (REPORT.md·첨부 다운로드)
+│   ├── task/report/<번호>/ ← 자동 생성 (REPORT.md·download/ 첨부)
+│   └── wiki/<위키>/<제목>/ ← 자동 생성 (download/ 위키 첨부)
 ├── DOORAY.md               ← 복사
 ├── .claude/skills/dooray-* ← 복사 (Claude Code를 쓸 경우)
 ├── .agents/skills/dooray-* ← 복사 (Codex를 쓸 경우)
-├── CLAUDE.md               ← 이미 있다면, 복사하지 말고 내용만 추가
 └── AGENTS.md               ← 이미 있다면, 복사하지 말고 내용만 추가
 ```
 
 `Dooray/`는 **폴더째로** 옮긴다 — `dooray.py`가 자기 옆(`Path(__file__).parent`)에서 `Config.md`를 찾기 때문이다.
+
+> **이전 버전에서 업데이트할 때:** 예전에는 업무 보고서를 `Dooray/report/<업무번호>/`에 두었다. `dooray.py`를 바꾸기 전에
+> `Dooray/report/` 안의 업무번호 폴더들을 `Dooray/task/report/`로 옮긴다. 옮기지 않으면 `dooray-report`가 기존 `REPORT.md`를 찾지 못하고 새로 작성한다.
 
 ## 설정
 
@@ -60,6 +63,8 @@ RESPONSE_TIME=10                 # 선택: API 응답 대기 초 (기본 10)
 
 > `DOORAY_API_TOKEN`은 개인 자격 증명이다. `Dooray/Config.md`는 `.gitignore`로 제외되며 **커밋하지 않는다**.
 > 팀원마다 각자 토큰으로 `Config.md`를 만든다.
+
+`Config.md`를 작성한 뒤 [`dooray` 명령 최초 설정](#dooray-명령-최초-설정)을 **반드시 한 번** 실행한다. Skill과 터미널 명령 모두 이 단계가 필요하다. 단축 명령 등록은 선택이다.
 
 ## 터미널에서 사용법
 
@@ -83,8 +88,9 @@ Windows는 PowerShell(시작메뉴에서 "PowerShell" 검색), macOS·Linux는 �
 현재 OS와 셸을
 판별하고 `dooray` 실행 명령, PATH와 단축 명령을 설정한 뒤 실제 실행까지 확인한다. 
 PATH나 단축 명령이 손상되거나 변경된 경우에도 같은 Skill을 다시 호출해 복구할 수 있다.
- - Claude Code: `/dooray-init`
- - Codex: `$dooray-init`
+
+- Claude Code: `/dooray-init`
+- Codex: `$dooray-init`
 
 #### AI 없이 직접 초기화하기
 
@@ -111,16 +117,28 @@ AI 없이 초기화한 경우에도 아래의 `dooray ...` 명령과 일반 Door
 `dooray` 명령은 현재 디렉터리의`Dooray/dooray.py`를 찾아 실행하므로 항상 작업 프로젝트 루트에서 실행한다.
 
 ```text
-dooray list 개수                     미완료 담당 업무를 최신순으로 N개
-dooray read 업무번호                   제목 + 상태 + 본문 + 첨부
-dooray full 업무번호 개수                read + 태그 + 댓글 이력 (생략 시 전체)
-dooray status 업무번호                 현재 상태
-dooray link 업무번호                   업무 웹 주소
-dooray workflows                   프로젝트의 상태 목록
-dooray setstatus 업무번호 상태명          상태 변경
-dooray comment 업무번호 내용             댓글 등록 (--file <경로> 로 파일에서 읽기 가능)
-dooray download 업무번호 [파일명|번호|all]  첨부를 Dooray/report/<업무번호>/download/ 에 저장
+//업무 부분
+dooray list 개수                          미완료 담당 업무를 최신순으로 N개
+dooray read 업무번호                       제목 + 상태 + 본문 + 첨부
+dooray full 업무번호 개수                   read + 태그 + 댓글 이력 (생략 시 전체)
+dooray status 업무번호                     현재 상태
+dooray link 업무번호                       업무 웹 주소
+dooray workflows                          프로젝트의 상태 목록
+dooray setstatus 업무번호 상태명            상태 변경
+dooray comment 업무번호 내용                댓글 등록 (--file <경로> 로 파일에서 읽기 가능)
+dooray download 업무번호 [파일명|번호|all]   첨부·본문·댓글 이미지를 Dooray/task/report/<업무번호>/download/ 에 저장 (생략 시 전체)
+
+//wiki 부분
+dooray wiki-list ["경로"]                    위키 페이지를 전체 경로로 (경로를 주면 그 아래만)
+dooray wiki-read ["경로"]                    위키 본문 + 댓글 + 파일 목록 + 위키 주소. 끝에 > 를 붙이거나 생략하면 하위 페이지 목록
+dooray wiki-download "경로" [파일명|번호|all]  위키 첨부·이미지를 Dooray/wiki/<위키>/<제목>/.../download/ 에 저장 (생략 시 전체)
+dooray wiki-write "경로" 내용                 있으면 '## 날짜 시:분' 헤더로 이어쓰기, 없으면 생성 (--file, --dry-run, --move-draft)
+                                             --file 내용 속 로컬 이미지·파일 링크는 함께 업로드해 위키 참조로 바꿈
 ```
+
+위키 경로는 `"회의록 > LG ICON25 프로젝트"`처럼 `>`로 잇고 **따옴표로 감싸며 `>` 앞뒤에 공백을 둔다.**
+따옴표가 없으면 셸이 `>`를 출력 리다이렉션으로 처리하고, Windows `dooray` 명령은 공백 없는 `>`를 따옴표 안에서도 리다이렉션으로 처리한다.
+`wiki-list` 출력 줄을 그대로 복사해 경로로 쓸 수 있다.
 
 ### 단축 명령으로 짧게 쓰기
 
@@ -132,6 +150,7 @@ AI로 초기화하면 최초 설정 또는 복구 시에만 토큰을 사용한�
 `dooray`와 단축 명령을 직접 실행할 때는 AI 토큰을 사용하지 않는다.
 
 ```text
+//업무부분
 dooray-list 5            = dooray list 5
 dooray-read 1287         
 dooray-read-full 1287       
@@ -141,8 +160,13 @@ dooray-workflows
 dooray-download 1287 all
 dooray-setstatus 1287 "DEV 완료"                     
 dooray-reply 1287 "확인했습니다"
-```
 
+//wiki 부분
+dooray-wiki-list "회의록"
+dooray-wiki-read "Visualizer > 실행 방법"
+dooray-wiki-write "Visualizer > 실행 방법" --file note.md
+dooray-wiki-download "AI BSM > GNSS 측위 시험" all
+```
 
 ### 출력 형식
 
@@ -180,30 +204,39 @@ Claude Code Skill은 `disable-model-invocation` 설정 때문에 `/dooray-*`로 
 AI의 `/dooray-init`·`$dooray-init` 또는 [수동 초기화](#ai-없이-직접-초기화하기) 중 하나를 완료해야 한다. 
 수동 초기화를 마쳤다면 `dooray-init` Skill을 별도로 호출할 필요는 없다.
 
-| Claude / Codex 호출 | 기능 |
-|---|---|
-| `/dooray-init` / `$dooray-init` | OS·셸 확인 후 `dooray` 명령, PATH와 단축 명령 최초 설정·복구 |
-| `/dooray-list` / `$dooray-list <개수>` | 미완료 담당 업무를 최신순으로 N개 |
-| `/dooray-read` / `$dooray-read <업무번호>` | 제목·상태·본문 조회 |
-| `/dooray-read-full` / `$dooray-read-full <업무번호> [개수]` | 위 + 태그 + 댓글 이력 |
-| `/dooray-status` / `$dooray-status <업무번호>` | 현재 상태만 확인 |
-| `/dooray-link` / `$dooray-link <업무번호>` | 업무 웹 주소 |
-| `/dooray-reply` / `$dooray-reply <업무번호> <댓글 내용>` | 댓글 등록 |
 
-댓글 등록·상태 변경 같은 쓰기 작업은 사용자의 명시적 요청 없이 실행하지 않는다. 
+| Claude / Codex 호출                                                             | 기능                                             |
+| ----------------------------------------------------------------------------- | ---------------------------------------------- |
+| `/dooray-init` / `$dooray-init`                                               | OS·셸 확인 후 `dooray` 명령, PATH와 단축 명령 최초 설정·복구    |
+| `/dooray-list` `<개수>` / `$dooray-list <개수>`                                   | 미완료 담당 업무를 최신순으로 N개                            |
+| `/dooray-read` `<업무번호>` / `$dooray-read <업무번호>`                               | 제목·상태·본문 조회                                    |
+| `/dooray-read-full` `<업무번호> [개수]` / `$dooray-read-full <업무번호> [개수]`           | 위 + 태그 + 댓글 이력                                 |
+| `/dooray-status` `<업무번호>` / `$dooray-status <업무번호>`                           | 현재 상태만 확인                                      |
+| `/dooray-link` `<업무번호>` / `$dooray-link <업무번호>`                               | 업무 웹 주소                                        |
+| `/dooray-reply` `<업무번호> <댓글 내용>` / `$dooray-reply <업무번호> <댓글 내용>`             | 댓글 등록                                          |
+| `/dooray-wiki-list` `[경로]` / `$dooray-wiki-list [경로]`                         | 위키 페이지를 전체 경로로                                 |
+| `/dooray-wiki-read` `[경로][>]` / `$dooray-wiki-read [경로][>]`                   | 위키 본문·댓글·파일 목록. 경로가 없거나 끝에 `>`면 번호 목록에서 골라 내려감 |
+| `/dooray-wiki-write` `[경로][>] <내용|파일>` / `$dooray-wiki-write [경로][>] <내용|파일>` | 받은 내용을 그대로 생성·이어쓰기. 쓰기 전 확인                    |
+
+
+댓글 등록·상태 변경·위키 쓰기 같은 쓰기 작업은 사용자의 명시적 요청 없이 실행하지 않는다. 
 공통 지침은 `DOORAY.md`, 도구별 지침은 `CLAUDE.md`와 `AGENTS.md`를 참고한다.
+
+
 
 ### 에이전트가 필요한 것 ⭐
 
-이 둘은 **터미널로 대체할 수 없다.** 여러 명령을 엮거나 모델의 판단이 필요해서, 이 도구를 에이전트에서 쓰는 진짜 이유에 해당한다.
+아래의 셋은 **터미널로 대체할 수 없다.** 여러 명령을 엮거나 모델의 판단이 필요해서, 이 도구를 에이전트에서 쓰는 진짜 이유에 해당한다.
 
-| Claude / Codex 호출 | 왜 에이전트여야 하나 |
-|---|---|
-| **`/dooray-status-change` / `$dooray-status-change <업무번호>`** | 현재 상태와 프로젝트의 상태 목록을 먼저 조회해 **선택지로 제시하고**, 고른 이름으로 변경까지 한다. 대화형이라 셸 함수로 만들 수 없다 — 단축 명령에 유일하게 빠져 있는 항목이다. 터미널로 하면 `dooray-status` → `dooray-workflows` → `dooray-setstatus "상태명"`을 직접 이어 실행하며 상태명을 정확히 옮겨 적어야 한다. |
-| **`/dooray-report` / `$dooray-report <업무번호>`** | **대응하는 CLI 명령이 없다.** 본문·댓글을 읽고, 첨부(`.md`·`.csv`·`.json`·`.png`·`.jpg`·`.pdf`)를 내려받아 직접 읽고, 프로젝트 코드를 탐색해 **"이 저장소에 어떻게 적용할지" 방안을 `Dooray/report/<번호>/REPORT.md`로 작성·갱신**한다. 확인한 사실만 쓰고, 못 정한 것은 "열린 질문"으로 남긴다. 구현은 하지 않는다. |
+
+| Claude / Codex 호출                                                           | 왜 에이전트여야 하나                                                                                                                                                                                                                    |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/dooray-status-change` `<업무번호>` **/** `$dooray-status-change <업무번호>`       | 현재 상태와 프로젝트의 상태 목록을 먼저 조회해 **선택지로 제시하고**, 고른 이름으로 변경까지 한다. 대화형이라 셸 함수로 만들 수 없다 — 단축 명령에 유일하게 빠져 있는 항목이다. 터미널로 하면 `dooray-status` → `dooray-workflows` → `dooray-setstatus "상태명"`을 직접 이어 실행하며 상태명을 정확히 옮겨 적어야 한다.               |
+| `/dooray-report <업무번호>` **/** `$dooray-report <업무번호>`                       | **대응하는 CLI 명령이 없다.** 본문·댓글을 읽고, 첨부(`.md`·`.csv`·`.json`·`.png`·`.jpg`·`.pdf`)를 내려받아 직접 읽고, 프로젝트 코드를 탐색해 **"이 저장소에 어떻게 적용할지" 방안을 `Dooray/task/report/<번호>/REPORT.md`로 작성·갱신**한다. 확인한 사실만 쓰고, 못 정한 것은 "열린 질문"으로 남긴다. 구현은 하지 않는다. |
+| `/dooray-task-to-wiki <업무번호> [목적]` **/** `$dooray-task-to-wiki <업무번호> [목적]` | 업무 본문·히스토리·첨부를 읽고 **목적에 맞는 위키 문서(개발자·엔지니어 대상)로 다시 쓴다.** 초안을 `Dooray/wiki/<업무번호>_<목적>.md`에 두고 대화로 고친 뒤, 위키 트리를 보고 위치를 제안해 이미지·자료와 함께 올린다. 가공·배치 판단이 필요해 셸 함수로 만들 수 없다.                                                          |
+
 
 `dooray-report`는 규모 있는 작업을 시작할 때의 입구다 — 이력을 파악해 방안 문서를 만들고, 실제 구현은 사람이 확인한 뒤 별도로 진행한다.
-
 
 ## 왜 이 도구인가
 
@@ -219,17 +252,20 @@ Dooray는 REST API만 제공하고 터미널용 1차(공식) CLI는 없다. 선�
 
 이 도구는 Dooray REST API를 감싼 얇은 래퍼다. 직접 호출 대비 이점:
 
-| 관점 | 이 도구 (`dooray.py`) | 원시 Dooray REST API 직접 호출 |
-|---|---|---|
-| 형태 | 명령어 9개짜리 CLI | HTTP 엔드포인트를 직접 조립 |
-| 의존성 | 파이썬 표준 라이브러리만 | 클라이언트 직접 구현 or 서드파티 |
-| 출력 | 사람·AI가 읽기 쉬운 정리된 텍스트 | 장황한 원시 JSON |
-| **AI 토큰** | **정리된 최소 텍스트 → 적게 소비** | 큰 JSON 파싱 → 많이 소비 |
-| 프로젝트 지정 | `REPOSITORY` 코드로 프로젝트 ID 자동 탐색 | `projectId`를 직접 알아야 함 |
-| 업무 목록 | "내가 담당자인 미완료 업무 최신순" 한 번에 | 담당자·워크플로·정렬 필터 직접 조합 |
-| @멘션 | `@한글이름` → 실제 멘션으로 자동 치환 | memberId 직접 조회·조립 |
-| 태그 | tagId를 이름으로 자동 치환 | 태그 목록 별도 조회·매핑 |
-| 성능 | 상세·첨부·댓글을 병렬 호출 | 직접 최적화 |
+
+| 관점        | 이 도구 (`dooray.py`)                | 원시 Dooray REST API 직접 호출           |
+| --------- | --------------------------------- | ---------------------------------- |
+| 형태        | 명령어 13개짜리 CLI (업무 9 + 위키 4)       | HTTP 엔드포인트를 직접 조립                  |
+| 의존성       | 파이썬 표준 라이브러리만                     | 클라이언트 직접 구현 or 서드파티                |
+| 출력        | 사람·AI가 읽기 쉬운 정리된 텍스트              | 장황한 원시 JSON                        |
+| **AI 토큰** | **정리된 최소 텍스트 → 적게 소비**            | 큰 JSON 파싱 → 많이 소비                  |
+| 프로젝트 지정   | `REPOSITORY` 코드로 프로젝트 ID 자동 탐색    | `projectId`를 직접 알아야 함              |
+| 위키 페이지    | 제목 경로(`회의록 > LG ICON25 프로젝트`)로 지정 | `wikiId`·`pageId`를 한 깊이씩 조회해 찾아야 함 |
+| 업무 목록     | "내가 담당자인 미완료 업무 최신순" 한 번에         | 담당자·워크플로·정렬 필터 직접 조합               |
+| @멘션       | `@한글이름` → 실제 멘션으로 자동 치환           | memberId 직접 조회·조립                  |
+| 태그        | tagId를 이름으로 자동 치환                 | 태그 목록 별도 조회·매핑                     |
+| 성능        | 상세·첨부·댓글을 병렬 호출                   | 직접 최적화                             |
+
 
 즉 projectId·workflowId·memberId·tagId를 몰라도 **코드·이름·상태명만으로** 쓸 수 있게
 다듬은, 에이전트 친화·토큰 효율 도구다.
@@ -238,22 +274,25 @@ Dooray는 REST API만 제공하고 터미널용 1차(공식) CLI는 없다. 선�
 
 우열이 아니라 **성격 차이**다.
 
-| 항목 | 이 도구 (`dooray.py`) | `@bifos/dooray-cli` |
-|---|---|---|
-| 언어 / 런타임 | Python 3.8+ | TypeScript / Node.js 20+ |
-| 설치 | 파일 복사 후 `dooray` 명령 최초 설정 (파이썬 필요) | `npm install -g @bifos/dooray-cli` |
-| 외부 의존성 | **0개** (표준 라이브러리만) | **11개** (`commander`·`ky`·`nodemailer`·`imapflow` 등) |
-| 코드 형태 | 단일 파일 | 멀티파일 프로젝트 |
-| 기능 범위 | 업무 조회·상태·댓글·첨부 (업무 명령 9개 + init/help) | 위키·이메일·메신저까지 포함한 범용 |
-| 출력 | 정리된 텍스트 | 표 / `--json` / `--quiet` |
-| 커스터마이징 | 파일 직접 수정, 빌드 없음 | 포크·빌드 또는 upstream PR |
-| 유지보수 주체 | 우리(사내) | 외부 오픈소스 |
-| 성숙도 | 최소한 | v0.14.1, 릴리스·CI/CD·캐싱·시크릿 마스킹 |
-| 라이선스 | MIT | MIT |
-| AI 연동 | Claude Code + Codex Skill | Claude 연동 지원 |
+
+| 항목       | 이 도구 (`dooray.py`)                                          | `@bifos/dooray-cli`                                  |
+| -------- | ----------------------------------------------------------- | ---------------------------------------------------- |
+| 언어 / 런타임 | Python 3.8+                                                 | TypeScript / Node.js 20+                             |
+| 설치       | 파일 복사 후 `dooray` 명령 최초 설정 (파이썬 필요)                          | `npm install -g @bifos/dooray-cli`                   |
+| 외부 의존성   | **0개** (표준 라이브러리만)                                          | **11개** (`commander`·`ky`·`nodemailer`·`imapflow` 등) |
+| 코드 형태    | 단일 파일                                                       | 멀티파일 프로젝트                                            |
+| 기능 범위    | 업무 조회·상태·댓글·첨부 + 위키 읽기·쓰기 (업무 명령 9개 + 위키 명령 4개 + init/help) | 위키·이메일·메신저까지 포함한 범용                                  |
+| 출력       | 정리된 텍스트                                                     | 표 / `--json` / `--quiet`                             |
+| 커스터마이징   | 파일 직접 수정, 빌드 없음                                             | 포크·빌드 또는 upstream PR                                 |
+| 유지보수 주체  | 우리(사내)                                                      | 외부 오픈소스                                              |
+| 성숙도      | 최소한                                                         | v0.14.1, 릴리스·CI/CD·캐싱·시크릿 마스킹                        |
+| 라이선스     | MIT                                                         | MIT                                                  |
+| AI 연동    | Claude Code + Codex Skill                                   | Claude 연동 지원                                         |
+
 
 **판단:** 이 도구는 처음부터 **개발자의 업무 루프**(내 미완료 업무 확인 → 내용·댓글 읽기 → 상태 변경 → 댓글 → 첨부 다운로드)만 겨냥해 설계했다. 
-개발자가 자기 업무를 처리하는 데는 이 9개 명령으로 충분하며, 업무 생성·수정이나 위키·메일·메신저 같은 기획/PM성 기능은 의도적으로 뺐다.
+개발자가 자기 업무를 처리하는 데는 이 9개 명령으로 충분하며, 업무 생성·수정이나 메일·메신저 같은 기획/PM성 기능은 의도적으로 뺐다.
+위키는 개발 문서(코드·실행 방법·용어 정리, 회의록 참고)를 남기고 읽는 용도로 목록·읽기(댓글·파일 목록 포함)·쓰기(생성·이어쓰기)·첨부 다운로드만 지원한다.
 
 그래서 순수 기능 폭·성숙도·유지보수 규모는 `@bifos/dooray-cli`가 앞선다. 
 이 도구가 가진 것은 **추가 의존성이 없고, 단일 파일이라 손대기 쉽고, 개발자 워크플로에 정확히 맞다**는 점이다. 
@@ -264,32 +303,44 @@ Dooray는 REST API만 제공하고 터미널용 1차(공식) CLI는 없다. 선�
 AI 에이전트로 쓸 때 요청·출력·답변은 데이터 양에 따라 양쪽 다 늘어나므로(상쇄됨), 
 구조적 차이는 **매 호출에 실리는 스킬 오버헤드의 바닥값**에서 갈린다. 실측 비교(값 `≤` 실제 소비):
 
-| | 스킬 오버헤드 (최소) | 참조 문서 |
-|---|---|---|
-| 이 도구 (`dooray.py`) | **0.55~0.61KB ≤** (Codex/Claude 스킬 1개, 예: `dooray-list`) | 없음 → 항상 평평 |
-| `@bifos/dooray-cli` | **2.95KB ≤** (라우터 `SKILL.md` 항상 로드) | 필요 시 최대 +34KB |
+
+|                     | 스킬 오버헤드 (최소)                                              | 참조 문서         |
+| ------------------- | --------------------------------------------------------- | ------------- |
+| 이 도구 (`dooray.py`)  | **0.55\~0.61KB ≤** (Codex/Claude 스킬 1개, 예: `dooray-list`) | 없음 → 항상 평평    |
+| `@bifos/dooray-cli` | **2.95KB ≤** (라우터 `SKILL.md` 항상 로드)                       | 필요 시 최대 +34KB |
+
 
 일반 스킬은 초기화된 `dooray` 하위 명령 한 줄만 호출하므로 바닥이 낮고,
 projectId·workflowId·memberId·tagId 해석을 도구 안에서 끝내 모델이 중간 데이터를 읽지 않는다.
 서드파티는 참조 문서가 열릴수록 격차가 더 벌어진다.
 
 주의: 위 비교는 **호출 1건에 로드되는 스킬 문서의 바이트 수**만 재 것이다. 
-우리 쪽은 스킬이 기능별로 9개 나뉘어 있어 개별 파일이 작고, 서드파티는 라우터 하나가 여러 기능을 안내하는 구조라 파일이 크다. 
+우리 쪽은 스킬이 기능별로 나뉘어 있어 개별 파일이 작고, 서드파티는 라우터 하나가 여러 기능을 안내하는 구조라 파일이 크다. 
 실제 대화 전체의 토큰 총량은 사용 패턴에 따라 달라진다.
-
 
 ## 문제 해결
 
-| 증상 | 원인·조치 |
-|---|---|
-| `dooray` 명령을 찾을 수 없음 | 최초 설정이 필요하다. `/dooray-init`·`$dooray-init`을 호출하거나 OS에 맞게 `Dooray/dooray.py init`을 직접 실행 |
-| 초기화했지만 `dooray`를 찾을 수 없음 | 터미널과 Claude Code/Codex를 다시 시작. macOS·Linux는 `~/.local/bin`이 PATH에 포함됐는지 확인 |
-| `dooray-read` 같은 단축 명령을 찾을 수 없음 | AI의 `dooray-init` Skill로 셸 프로필에 단축 함수를 등록하거나 프로필을 다시 불러오기 |
-| `Config.md 가 없습니다` | `Dooray/Config.md`를 만들고 `DOORAY_API_TOKEN`·`REPOSITORY` 기입 |
-| `'...' 가 없습니다` (프로젝트) | `REPOSITORY=` 프로젝트 코드가 접근 가능한 프로젝트와 일치하는지 확인 |
-| `Dooray API 오류 (HTTP 401)` | 토큰이 만료·오타·권한 부족. 토큰 재발급 |
-| `응답이 N초 안에 오지 않았습니다` | 네트워크 지연. `Config.md`의 `RESPONSE_TIME=` 값을 늘림 |
-| `link`/`이력 주소 확인 불가` | `Config.md`에 `TENANT=` 설정 필요 |
+
+| 증상                              | 원인·조치                                                                                   |
+| ------------------------------- | --------------------------------------------------------------------------------------- |
+| `dooray` 명령을 찾을 수 없음            | 최초 설정이 필요하다. `/dooray-init`·`$dooray-init`을 호출하거나 OS에 맞게 `Dooray/dooray.py init`을 직접 실행 |
+| 초기화했지만 `dooray`를 찾을 수 없음        | 터미널과 Claude Code/Codex를 다시 시작. macOS·Linux는 `~/.local/bin`이 PATH에 포함됐는지 확인              |
+| `dooray-read` 같은 단축 명령을 찾을 수 없음 | AI의 `dooray-init` Skill로 셸 프로필에 단축 함수를 등록하거나 프로필을 다시 불러오기                               |
+| `Config.md 가 없습니다`              | `Dooray/Config.md`를 만들고 `DOORAY_API_TOKEN`·`REPOSITORY` 기입                              |
+| `'...' 가 없습니다` (프로젝트)           | `REPOSITORY=` 프로젝트 코드가 접근 가능한 프로젝트와 일치하는지 확인                                            |
+| `Dooray API 오류 (HTTP 401)`      | 토큰이 만료·오타·권한 부족. 토큰 재발급                                                                 |
+| `응답이 N초 안에 오지 않았습니다`            | 네트워크 지연. `Config.md`의 `RESPONSE_TIME=` 값을 늘림                                            |
+| `link`/`이력 주소 확인 불가`            | `Config.md`에 `TENANT=` 설정 필요                                                            |
+
+
+## 개발
+
+이 저장소에서 `dooray.py`를 고쳤다면 저장소 루트에서 오프라인 테스트를 실행한다(토큰·네트워크 불필요).
+`tests/`는 작업 프로젝트에 복사하지 않는다.
+
+```text
+python -B -m unittest discover -s tests
+```
 
 ## 라이선스
 

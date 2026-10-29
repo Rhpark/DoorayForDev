@@ -8,12 +8,12 @@ allowed-tools:
   - Read
   - Grep
   - Glob
-  - Write(Dooray/report/**)
-  - Edit(Dooray/report/**)
-  - PowerShell(python Dooray/dooray.py full *)
-  - PowerShell(python Dooray/dooray.py download *)
-  - Bash(python Dooray/dooray.py full *)
-  - Bash(python Dooray/dooray.py download *)
+  - Write(Dooray/task/report/**)
+  - Edit(Dooray/task/report/**)
+  - PowerShell(dooray full *)
+  - PowerShell(dooray download *)
+  - Bash(dooray full *)
+  - Bash(dooray download *)
   - Bash(date *)
   - PowerShell(Get-Date *)
 ---
