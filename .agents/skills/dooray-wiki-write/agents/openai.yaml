@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 위키 쓰기"
+  short_description: "받은 내용을 Dooray 위키에 그대로 생성하거나 날짜 헤더로 이어씁니다"
+  default_prompt: "$dooray-wiki-write로 받은 내용을 그대로 위키에 써주세요. 먼저 생성·이어쓰기 여부, 대상 경로, 본문과 업로드할 파일을 보여주고 확인을 받은 뒤 실행하세요."
+
+policy:
+  allow_implicit_invocation: false

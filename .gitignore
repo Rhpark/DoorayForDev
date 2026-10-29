@@ -1,5 +1,10 @@
 # 민감 정보 (API 토큰/인증)
 Dooray/Config.md
+
+# 내려받은 파일 (REPORT.md 등 직접 작성한 문서는 추적)
+Dooray/task/report/*/download/
+Dooray/wiki/**/download/
+# 이전 구조(Dooray/report/)를 아직 옮기지 않은 경우
 Dooray/report/*/download/
 
 # 파이썬 캐시

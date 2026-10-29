@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 위키 목록"
+  short_description: "프로젝트 Dooray 위키 페이지를 전체 경로로 조회합니다"
+  default_prompt: "$dooray-wiki-list로 프로젝트 위키 페이지 목록을 전체 경로로 그대로 보여주세요. 경로를 지정했다면 그 아래만 조회하세요."
+
+policy:
+  allow_implicit_invocation: false

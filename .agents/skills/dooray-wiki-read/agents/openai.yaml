@@ -1,0 +1,7 @@
+interface:
+  display_name: "Dooray 위키 읽기"
+  short_description: "Dooray 위키 페이지를 경로로 읽거나 번호 목록으로 찾아 읽습니다"
+  default_prompt: "$dooray-wiki-read로 지정한 위키 페이지의 본문·댓글·파일 목록을 원본 그대로 보여주세요. 경로가 없으면 전체 번호 목록에서 한 단계씩 고르게 해주세요."
+
+policy:
+  allow_implicit_invocation: false
